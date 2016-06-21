@@ -1,4 +1,5 @@
 #include "main.h"
+#include "IsisTRXVU.h"
 
 void EPS_Power_Conditioning(gom_eps_hk_t* EPS_Cur_TLM, unsigned short* Vbatt_Previous, gom_eps_channelstates_t* channels_state)
 {
@@ -166,7 +167,7 @@ void Write_F_EPS_TLM(gom_eps_hk_t* EPS_CUR_TLM)
 	FileWrite(EPS_File, 0, eps_tlm, EPS_TLM_SIZE);
 }
 
-void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX){
+void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm){
 
 	char sd_file_name[] = {"HK_packets"};
 	Packet->sid=166;
@@ -204,7 +205,12 @@ void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTeleme
 	Packet->HK_tx_power_fwd_dbm = tlmTX.fields.tx_reflpwr;
 	Packet->HK_tx_power_refl_dbm = tlmTX.fields.tx_fwrdpwr;
 	IsisTrxvu_tcGetUptime(0,Packet->HK_tx_uptime);
+
+	//Antena
+	Packet->HK_ants_temperature = antstlm.fields.ants_temperature;
+	Packet->ant = antstlm.fields.ants_deployment.raw;
 				//COMM END
 	FileWrite(sd_file_name, 0,(char *)Packet,sizeof(HK_Struct));
 }
+
 

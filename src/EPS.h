@@ -8,9 +8,9 @@
 #ifndef EPS_H_
 #define EPS_H_
 
-
 #include "main.h"
 #include "GomEPS.h"
+#include "FileSys.h"
 
 #ifndef EPS_address
 #define EPS_address 0x02
@@ -45,7 +45,15 @@ typedef struct HKP_Struct {
 	unsigned char HK_tx_uptime[4];
 	unsigned short HK_tx_power_fwd_dbm;
 	unsigned short HK_tx_power_refl_dbm;
+
 	//COMM END
+
+	//ANTENA START
+	unsigned short HK_ants_temperature;
+	unsigned short ant;
+	//ANTENA END
+
+
 
 } HK_Struct;
 
@@ -55,6 +63,7 @@ void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state
 void Cruse(gom_eps_channelstates_t* channels_state);
 void Safe(gom_eps_channelstates_t* channels_state);
 void Write_F_EPS_TLM(gom_eps_hk_t* EPS_CUR_TLM);
+void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX);
 
 
 #endif /* EPS_H_ */
