@@ -152,6 +152,8 @@ void act_upon_comm(unsigned char* in)
 {
 
 	unsigned int i=0;
+	unsigned int script_len;
+	FRAM_read(&tc_count,TC_COUNT_ADDR,1);
 	in++;
 	rcvd_packet decode;
 	parse_comm(&decode,in);
@@ -170,23 +172,8 @@ void act_upon_comm(unsigned char* in)
 
 	switch(decode.srvc_type)
 	{
-		case (11):
-				printf("service type 11");
-			if(decode.srvc_subtype==1)
-			{
-				tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
-				Set_Mute(TRUE);//enable mute
-				printf("Command Mute\n");
-			}
-			if(decode.srvc_subtype==0x02)
-			{
-				tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
-				Set_Mute(FALSE);//disable mute
-				printf("Command Disable Mute\n");
-			}
-		break;
 		case (3):
-			if(decode.srvc_subtype==125)//dump
+			if(decode.srvc_subtype==131)//dump
 			{
 				//tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
 				xTaskHandle taskDumpHandle;
@@ -200,15 +187,49 @@ void act_upon_comm(unsigned char* in)
 			}
 		break;
 		case (8):
-			if(decode.srvc_subtype==137)
+				printf("service type 8");
+				if(decode.srvc_subtype==131)
+				{
+					tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
+					Set_Mute(TRUE);//enable mute
+					printf("Command Mute\n");
+				}
+				if(decode.srvc_subtype==132)
+				{
+					tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
+					Set_Mute(FALSE);//disable mute
+					printf("Command Disable Mute\n");
+				}
+				if(decode.srvc_subtype==137)
+				{
+					adcs_stage=decode.data[0];
+					printf("Change stage to %d\n",adcs_stage);
+				}
+			break;
+		case (130):
+			if(decode.srvc_subtype==131)//upload subpacket
 			{
-				adcs_stage=decode.data[0];
-				printf("Change stage to %d\n",adcs_stage);
+				FRAM_write(decode.data+1,SCRIPT_RAW_ADDR+BLOCK_SIZE*decode.data[0],BLOCK_SIZE);
+			}
+			if(decode.srvc_subtype==132)//upload last frame
+			{
+				printf("received full script\n");
+				unsigned char printscript[500];
+				FRAM_write(decode.data,SCRIPT_RAW_ADDR-1,1);//save script number
+				FRAM_write(decode.data+1,SCRIPT_RAW_ADDR-3,2);//save script size
+				script_len=decode.data[1]*256+decode.data[2];
+
+				FRAM_read(printscript,SCRIPT_RAW_ADDR,script_len);
+				for(i=0;i<script_len;i++)
+				{
+					printf("%x ", printscript[i]);
+				}
+				printf("\n");
+				//invoke function here
 			}
 		break;
-
-		case (9):
-			if(decode.srvc_subtype==3)//update time. may be subject to change in servive type /subtypr
+		case (131):
+			if(decode.srvc_subtype==1)//update time. may be subject to change in servive type /subtypr
 			{
 				printf("Command Set Time\n");
 				tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
@@ -236,34 +257,21 @@ void act_upon_comm(unsigned char* in)
 				send_SCS_pct(response);
 				printf("Command report Time\n");
 			}
-		break;
-		case (13):
-			if(decode.srvc_subtype==10)//upload subpacket
-			{
-				FRAM_write(decode.data+1,SCRIPT_RAW_ADDR+BLOCK_SIZE*decode.data[0],BLOCK_SIZE);
-			}
-			if(decode.srvc_subtype==11)//upload last frame
-			{
-				FRAM_write(decode.data,SCRIPT_RAW_ADDR-1,1);//save script number
-				FRAM_write(decode.data+1,SCRIPT_RAW_ADDR-3,2);//save script size
-				//invoke function here
-			}
-		break;
-		case(14)://upload EPS prameters
 			if(decode.srvc_type == 3)
 			{
-				unsigned char n_voltages[6];
+				unsigned char n_voltages[EPS_VOLTAGE_SIZE];
 				int i = 0;
 				for(;i<6;i++)
 				{
 					n_voltages[i] = decode.data[i];
 				}
-				FRAM_write(n_voltages, EPS_VOLTAGE_ADDR,6);
+				FRAM_write(n_voltages, EPS_VOLTAGE_ADDR, EPS_VOLTAGE_SIZE);
 			}
 		break;
 		default:
 			free(decode.data);
 			tc_count++;
+			FRAM_write(&tc_count,TC_COUNT_ADDR,1);
 			tc_verification_report(decode,TC_EXEC_COMPLETE_FAILURE,ERR_ILEGAL_DATA,in);//ERROR NO COMMAND RECOGNIZED
 		return;
 	}
@@ -271,6 +279,7 @@ void act_upon_comm(unsigned char* in)
 	//tc_verification_report(decode,TC_EXEC_COMPLETE_SUCCESS,NO_ERR,in);
 	free(decode.data);
 	tc_count++;
+	FRAM_write(&tc_count,TC_COUNT_ADDR,1);
 }
 
 void dump(void *arg)
@@ -284,7 +293,7 @@ void dump(void *arg)
 		vTaskDelay(2000 / portTICK_RATE_MS);
 		AllinAll();
 	}
-	/*
+
 	if(!Get_Mute())
 	{
 		unsigned char type;unsigned char am;
@@ -323,7 +332,7 @@ void dump(void *arg)
 		for(;i<am;i++)
 		{
 			printf("sent packet %d\n",i);
-			FileRead(eps_file ,pct.data+1, size);
+			FileRead(eps_file ,(char *)pct.data+1, size);
 			//delete_packets_from_file(file, todel,size);
 			update_time(pct.c_time);
 			send_SCS_pct(pct);
@@ -332,9 +341,7 @@ void dump(void *arg)
 		}
 
 		free(pct.data);
-
 	}
-	*/
 }
 
 
@@ -365,9 +372,9 @@ void end_gs_mode()
 	//GomEpsSetOutput(0, glb_channels_state);
 }
 
-Boolean check_ants_deployed()
+Boolean check_ants_deployed()// NOT WORKING CAUSE ISIS CODE
 {
-	ISISantsSide side = isisants_sideA;
+	/*ISISantsSide side = isisants_sideA;
 	ISISantsStatus ants_stat;
 
 	side = isisants_sideA;
@@ -379,7 +386,7 @@ Boolean check_ants_deployed()
 	{
 		printf("deployed\n");
 		return TRUE;
-	}
+	}*/
 	printf("not deployed\n");
 	return FALSE;
 

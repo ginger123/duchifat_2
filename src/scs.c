@@ -52,6 +52,7 @@ int send_SCS_pct(ccsds_packet pct_dat)
 	unsigned char* ret;
 	unsigned int i;
 	short chksm;
+	FRAM_read(ssc,SSC_ADDR,(HIGHEST_APID+1)*4);
 	if(pct_dat.apid >= 1<<9)
 	{
 		printf("invalid apid");
@@ -95,6 +96,7 @@ int send_SCS_pct(ccsds_packet pct_dat)
 	ax25send(ret,pct_dat.len+16);
 
 	ssc[pct_dat.apid]++;
+	FRAM_write(ssc,SSC_ADDR,(HIGHEST_APID+1)*4);
 	free(ret);
 	return retval;
 }
@@ -104,7 +106,7 @@ void ax25send(unsigned char* in, unsigned int len)
 	int retval;
 	unsigned int i=0;
 	unsigned char* ret = (unsigned char*)calloc(len+5,sizeof(char));
-
+	FRAM_read(&frame_count,FRAME_COUNT_ADDR,1);
 	ret[0]=0x00;// version number+ virtual channel id+ spare
 	ret[1]=frame_count;//master count
 	ret[2]=frame_count;//virtual channel count(same because we only use 1 channel)
@@ -133,6 +135,7 @@ void ax25send(unsigned char* in, unsigned int len)
 	//	}
 	//	printf("\r\nEND PACKET\r\n");
 	frame_count++;
+	FRAM_write(&frame_count,FRAME_COUNT_ADDR,1);
 	free(ret);
 }
 
@@ -159,12 +162,12 @@ void parse_comm(rcvd_packet *pct, unsigned char in[])
 	short crc;
 	unsigned char* data;
 	len=in[4]<<8;
-	len+=in[5]+1;
-	pct->len=len-5;
+	len+=in[5]+1-5;//length of only the data part
+	pct->len=len;
 	data=calloc(pct->len,sizeof(unsigned char));
 	for(;i<len;i++)
 	{
-		data[i]=in[i+9];
+		data[i]=in[i+9];//offset of 9 bytes from beginning
 	}
 	pct->data=data;
 	pct->apid= ((in[0]& 0x07)<<8) +in[1];
@@ -173,7 +176,7 @@ void parse_comm(rcvd_packet *pct, unsigned char in[])
 	pct->ssc=((in[2]& 0x3f)<<8) + in[3];
 
 	pct->isvalidcrc=TRUE;
-	crc = calc_crc(in, len+9);
+	crc = calc_crc(in, len+11);
 	if(crc!=0)
 	{
 		printf("checksum of packet failed. aborting command\n");
