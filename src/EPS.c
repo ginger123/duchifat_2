@@ -167,7 +167,8 @@ void Write_F_EPS_TLM(gom_eps_hk_t* EPS_CUR_TLM)
 	FileWrite(EPS_File, 0, eps_tlm, EPS_TLM_SIZE);
 }
 
-void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm){
+void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm)
+{
 
 	char sd_file_name[] = {"HK_packets"};
 	Packet->sid=166;

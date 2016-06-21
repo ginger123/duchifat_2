@@ -7,7 +7,7 @@
 
 
 #include "main.h"
-
+#include "trxvu.h"
 unsigned int ssc[HIGHEST_APID+1];//to keep track of ssc for each apid
 unsigned char frame_count;
 

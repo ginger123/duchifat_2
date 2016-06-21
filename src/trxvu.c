@@ -7,7 +7,7 @@
  */
 
 #include "main.h"
-
+#include "EPS.h"
 unsigned char tc_count;
 unsigned char dumpparam[2];
 

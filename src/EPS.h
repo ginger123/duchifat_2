@@ -11,13 +11,14 @@
 #include "main.h"
 #include "GomEPS.h"
 #include "FileSys.h"
-
+#include "IsisTRXVU.h"
 #ifndef EPS_address
 #define EPS_address 0x02
 #endif
 
 #define EPS_TLM_SIZE 42
 #define EPS_VOLTAGE_ADDR 0x1000
+#define EPS_VOLTAGE_SIZE 6
 
 typedef struct HKP_Struct {
 	unsigned char sid;
@@ -63,7 +64,7 @@ void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state
 void Cruse(gom_eps_channelstates_t* channels_state);
 void Safe(gom_eps_channelstates_t* channels_state);
 void Write_F_EPS_TLM(gom_eps_hk_t* EPS_CUR_TLM);
-void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX);
+void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm);
 
 
 #endif /* EPS_H_ */

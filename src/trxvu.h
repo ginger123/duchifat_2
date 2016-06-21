@@ -27,7 +27,9 @@
 #define BLOCK_SIZE 16
 
 #define BACON_TIME 3000
-
+#define TC_COUNT_ADDR 0x100A
+#define FRAME_COUNT_ADDR 0x100B
+#define SSC_ADDR 0X100C
 typedef struct isisTXtlm
 {
     float tx_reflpwr; ///< Tx Telemetry reflected power.
