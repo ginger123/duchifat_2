@@ -545,20 +545,6 @@ void ADC_Stage_8()
 	}
 }*/
 
-void ADCS_payload_Telemetry()
-{
-	adcs_angrate_t ang_rates;
-	adcs_attangles_t att_angles;
-	ADCS_Payload_Telemetry Payload_Telemtry;
-	eslADCS_getEstimatedAttAngles(&att_angles);
-	Payload_Telemtry.estimated_attitude_angles[0] = att_angles.fields.roll;
-	Payload_Telemtry.estimated_attitude_angles[1] = att_angles.fields.pitch;
-	Payload_Telemtry.estimated_attitude_angles[2] = att_angles.fields.yaw;
-	eslADCS_getEstimatedAngRates(&ang_rates);
-	Payload_Telemtry.estimated_anglar_rates[0] = ang_rates.fields.x_angrate;
-	Payload_Telemtry.estimated_anglar_rates[1] = ang_rates.fields.y_angrate;
-	Payload_Telemtry.estimated_anglar_rates[2] = ang_rates.fields.z_angrate;
-}
 
 
 void task_adcs_commissioning()
