@@ -1,5 +1,6 @@
 /*
  * trxvu.c
+
  *
  *  Created on: 10 ???? 2016
  *      Author: Ariel
@@ -375,6 +376,7 @@ Boolean check_ants_deployed()// NOT WORKING CAUSE ISIS CODE
 {
 	/*ISISantsSide side = isisants_sideA;
 	ISISantsStatus ants_stat;
+
 	side = isisants_sideA;
 	IsisAntS_getStatusData(0,side,&ants_stat);
 	side = isisants_sideB;
@@ -461,8 +463,8 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 		Set_Curout3V3(EpsTelemetry_hk.fields.curout[4]);
 		Set_Curout5V(EpsTelemetry_hk.fields.curout[0]);
 		Set_tempCOMM(eng_value);
-		Set_tempEPS(EpsTelemetry_hk.fields.temp[0]);
-		Set_tempBatt(EpsTelemetry_hk.fields.temp[4]);
+		Set_tempEPS(EpsTelemetry_hk.fields.temp[0]+60);
+		Set_tempBatt(EpsTelemetry_hk.fields.temp[4]+60);
 		dat[1]= glb.Mnlp_State;
 		dat[2]=glb.vbatt;
 		dat[3]=glb.cursys;

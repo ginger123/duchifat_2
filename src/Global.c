@@ -37,39 +37,39 @@ void Set_Mnlp_State(Boolean state)
 	glb.Mnlp_State = state;
 }
 
-void Set_Vbatt(unsigned short Vbatt)
+void Set_Vbatt(unsigned short Vbatt)//in mV
 {
-	glb.vbatt = (unsigned char)Max(0,Min(255,(double)(int)(20*Vbatt)-60));
+	glb.vbatt = (unsigned char)Max(0,Min(255,((double)20*Vbatt)/1000-60));
 }
 
-void Set_Cursys(unsigned short cursys)
+void Set_Cursys(unsigned short cursys)//in mA
 {
-	glb.cursys = (unsigned char)Max(0,Min(255,(double)(int)(127*cursys)+127));
+	glb.cursys = (unsigned char)Max(0,Min(255,((double)127*cursys)/1000+127));
 }
 
-void Set_Curout3V3(unsigned short curout)
+void Set_Curout3V3(unsigned short curout)//in mA
 {
-	glb.curout3V3 = (unsigned char)Max(0,Min(255,(double)(int)(40*curout)));
+	glb.curout3V3 = (unsigned char)Max(0,Min(255,(double)40*curout));
 }
 
-void Set_Curout5V(unsigned short curout)
+void Set_Curout5V(unsigned short curout)//in mA
 {
-	glb.curout5V = (unsigned char)Max(0,Min(255,(double)(int)(40*curout)));
+	glb.curout5V = (unsigned char)Max(0,Min(255,(double)40*curout/1000));
 }
 
 void Set_tempCOMM(short temp)
 {
-	glb.tempCOMM = (unsigned char)Max(0,Min(255,(double)(int)(4*temp)+60));
+	glb.tempCOMM = (unsigned char)Max(0,Min(255,(double)4*temp+60));
 }
 
 void Set_tempEPS(short temp)
 {
-	glb.tempEPS = (unsigned char)Max(0,Min(255,(double)(int)(4*temp)+60));
+	glb.tempEPS = (unsigned char)Max(0,Min(255,(double)4*temp+60));
 }
 
 void Set_tempBatt(short temp)
 {
-	glb.tempBatt = (unsigned char)Max(0,Min(255,(double)(int)(4*temp)+60));
+	glb.tempBatt = (unsigned char)Max(0,Min(255,(double)4*temp+60));
 }
 
 
@@ -81,16 +81,3 @@ Boolean Get_Mute()
 	}
 	return FALSE;
 }
-
-unsigned long convert_epoctime(char packet[])
-{
-	//get the epoctime signature from the packet sent
-	unsigned long tl=0;
-	tl += packet[0]<<24;
-	tl += packet[1]<<16;
-	tl += packet[2]<<8;
-	tl += packet[3];
-	//printf("final answer is %lu\n",tl);
-	return tl;
-}
-
