@@ -94,3 +94,11 @@ unsigned long convert_epoctime(char packet[])
 	return tl;
 }
 
+void convert_time_array(unsigned long t_l, unsigned char time[5])
+{
+	time[0]=t_l>>24;
+	time[1]=t_l>>16;
+	time[2]=t_l>>8;
+	time[3]=t_l;
+	time[4]=0;
+}

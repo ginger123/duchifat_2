@@ -172,7 +172,7 @@ void act_upon_comm(unsigned char* in)
 	switch(decode.srvc_type)
 	{
 		case (3):
-			if(decode.srvc_subtype==131)//dump
+			if(decode.srvc_subtype==125)//dump
 			{
 				//tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
 				xTaskHandle taskDumpHandle;
@@ -299,11 +299,12 @@ void dump(void *arg)
 		type=argument[10];
 		char HK_packets[] = {"HK_packets"};
 		char *file;
+		unsigned char *temp_data;
 		int size=0;
-		int i=0;
+		int i=0,j;
 		int start_idx = 0;
 		int num_packets = 0;
-		unsigned char sid = 0;
+		unsigned long t_l;
 		ccsds_packet pct;
 
 		pct.srvc_type=3;
@@ -312,10 +313,9 @@ void dump(void *arg)
 		switch (type)
 		{
 			case 1://dumping HK packet packet
-				sid=0x05;
 				file=HK_packets;
-				size=EPS_TLM_SIZE;
-				printf("dump eps\n");
+				size=HK_SIZE;
+				printf("dump HK\n");
 				break;
 			case 2:
 				break;
@@ -326,16 +326,22 @@ void dump(void *arg)
 				break;
 		}
 
-		pct.len=size+1;//updates data based on the type of the packet
+		pct.len=size;//updates data based on the type of the packet
 		pct.apid=10;
-		pct.data=(unsigned char*)calloc(size+1,sizeof(char));
-		pct.data[0] = sid;
+		temp_data = (unsigned char*)calloc(size+5,sizeof(char));
+
 		num_packets = find_number_of_packets(file,size+5,start_time,final_time,&start_idx);
 
 		for(;i<num_packets;i++)//sending packets
 		{
-			FileReadIndex(file, (char *)pct.c_time,5,start_idx + i*(size + 5));
-			FileReadIndex(file, (char *)pct.data,size,start_idx + i*(size + 5) + 5);
+			FileReadIndex(file, (char *)temp_data,size+5,start_idx+i);
+
+			// convert time to epoch time
+			t_l = convert_epoctime(temp_data);
+			t_l = t_l -30*365*24*3600-24*3600*7;
+			convert_time_array(t_l, pct.c_time);
+
+			pct.data = temp_data+5;
 
 			//delete_packets_from_file(file, todel,size);
 			send_SCS_pct(pct);
@@ -404,7 +410,7 @@ void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix)
 	int i=0;
 	// 5. check command receive
 	IsisTrxvu_rcGetFrameCount(0, &RxCounter);
-	printf("\n rxcounter is: %d\n",RxCounter);
+
 	// 6. check if begin GS mode
 	if(RxCounter>0)
 	{

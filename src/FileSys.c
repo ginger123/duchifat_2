@@ -75,7 +75,10 @@ void FileWrite(char Filename[], Boolean Ifsafe, char Data[], int _BUFF_SIZE)
 void WritewithEpochtime(char Filename[], Boolean Ifsafe, char Data[], int _BUFF_SIZE)
 {
 	unsigned char time[5];
-	update_time(time);
+	unsigned long t;
+	Time_getUnixEpoch(&t);
+	convert_time_array(t,time);
+	//update_time(time);
 	FileWrite( Filename,  Ifsafe, (char*)time,  5);
 	FileWrite( Filename,  Ifsafe,  Data,  _BUFF_SIZE);
 }

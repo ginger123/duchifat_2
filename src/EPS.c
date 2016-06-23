@@ -118,59 +118,13 @@ void Safe(gom_eps_channelstates_t* channels_state)
 	channels_state->fields.channel5V_3 = 0;
 }
 
-void Write_F_EPS_TLM(gom_eps_hk_t* EPS_CUR_TLM)
-{
-	char eps_tlm[EPS_TLM_SIZE];
-	eps_tlm[0] = EPS_CUR_TLM->fields.vbatt/256;
-	eps_tlm[1] = EPS_CUR_TLM->fields.vbatt%256;
-	eps_tlm[2] = EPS_CUR_TLM->fields.vboost[0]/256;
-	eps_tlm[3] = EPS_CUR_TLM->fields.vboost[0]%256;
-	eps_tlm[4] = EPS_CUR_TLM->fields.vboost[1]/256;
-	eps_tlm[5] = EPS_CUR_TLM->fields.vboost[1]%256;
-	eps_tlm[6] = EPS_CUR_TLM->fields.vboost[2]/256;
-	eps_tlm[7] = EPS_CUR_TLM->fields.vboost[2]%256;
-	eps_tlm[8] = EPS_CUR_TLM->fields.curin[0]/256;
-	eps_tlm[9] = EPS_CUR_TLM->fields.curin[0]%256;
-	eps_tlm[10] = EPS_CUR_TLM->fields.curin[1]/256;
-	eps_tlm[11] = EPS_CUR_TLM->fields.curin[1]%256;
-	eps_tlm[12] = EPS_CUR_TLM->fields.curin[2]/256;
-	eps_tlm[13] = EPS_CUR_TLM->fields.curin[2]%256;
-	eps_tlm[14] = EPS_CUR_TLM->fields.curout[0]/256;
-	eps_tlm[15] = EPS_CUR_TLM->fields.curout[0]%256;
-	eps_tlm[16] = EPS_CUR_TLM->fields.curout[1]/256;
-	eps_tlm[17] = EPS_CUR_TLM->fields.curout[1]%256;
-	eps_tlm[18] = EPS_CUR_TLM->fields.curout[2]/256;
-	eps_tlm[19] = EPS_CUR_TLM->fields.curout[2]%256;
-	eps_tlm[20] = EPS_CUR_TLM->fields.curout[3]/256;
-	eps_tlm[21] = EPS_CUR_TLM->fields.curout[3]%256;
-	eps_tlm[22] = EPS_CUR_TLM->fields.curout[4]/256;
-	eps_tlm[23] = EPS_CUR_TLM->fields.curout[4]%256;
-	eps_tlm[24] = EPS_CUR_TLM->fields.curout[5]/256;
-	eps_tlm[25] = EPS_CUR_TLM->fields.curout[5]%256;
-	eps_tlm[26] = (EPS_CUR_TLM->fields.temp[0]+60)/256;  // temperatures will be + 60 deg c
-	eps_tlm[27] = (EPS_CUR_TLM->fields.temp[1]+60)/256;
-	eps_tlm[29] = (EPS_CUR_TLM->fields.temp[1]+60)%256 ;
-	eps_tlm[30] = (EPS_CUR_TLM->fields.temp[2]+60)/256;
-	eps_tlm[31] = (EPS_CUR_TLM->fields.temp[2]+60)%256 ;
-	eps_tlm[32] = (EPS_CUR_TLM->fields.temp[3]+60)/256;
-	eps_tlm[33] = (EPS_CUR_TLM->fields.temp[3]+60)%256 ;
-	eps_tlm[34] = (EPS_CUR_TLM->fields.temp[4]+60)/256;
-	eps_tlm[35] = (EPS_CUR_TLM->fields.temp[4]+60)%256 ;
-	eps_tlm[36] = (EPS_CUR_TLM->fields.temp[5]+60)/256;
-	eps_tlm[37] = (EPS_CUR_TLM->fields.temp[5]+60)%256;
-	eps_tlm[38] = EPS_CUR_TLM->fields.cursys/256;
-	eps_tlm[39] = EPS_CUR_TLM->fields.cursys%256;
-	eps_tlm[40] = EPS_CUR_TLM->fields.cursun/256;
-	eps_tlm[41] = EPS_CUR_TLM->fields.cursun%256;
-	char EPS_File[] ={"EPSFILE"};
-	FileWrite(EPS_File, 0, eps_tlm, EPS_TLM_SIZE);
-}
 
 void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm)
 {
 	HK_Struct Packet;
+	unsigned int i;
 	char sd_file_name[] = {"HK_packets"};
-	Packet.sid=166;
+	Packet.sid=0x05;
 	//EPS PARAM START
 	Packet.HK_vbatt = tlm.fields.vbatt;
 	Packet.HK_vboost[0] = tlm.fields.vboost[0];
@@ -210,5 +164,17 @@ void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxv
 	Packet.HK_ants_temperature = antstlm.fields.ants_temperature;
 	Packet.ant = antstlm.fields.ants_deployment.raw[1]*256 + antstlm.fields.ants_deployment.raw[0];
 				//COMM END
-	FileWrite(sd_file_name, 0,(char *)&Packet,sizeof(HK_Struct));
+	WritewithEpochtime(sd_file_name, 0,(char *)&Packet,sizeof(HK_Struct));
+
+	// send packet
+	ccsds_packet ccs_packet;
+	ccs_packet.apid=10;
+	ccs_packet.srvc_type = 3;
+	ccs_packet.srvc_subtype = 25;
+	update_time(ccs_packet.c_time);
+	ccs_packet.len = sizeof(HK_Struct);
+	ccs_packet.data = (unsigned char*)&Packet;
+
+
+	//send_SCS_pct(ccs_packet);
 }

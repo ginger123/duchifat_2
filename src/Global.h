@@ -35,6 +35,7 @@ void Set_tempCOMM(short temp);
 void Set_tempEPS(short temp);
 void Set_tempBatt(short temp);
 unsigned long convert_epoctime(char packet[]);
+void convert_time_array(unsigned long t_l, unsigned char time[5]);
 
 Boolean Get_Mute();
 

@@ -9,7 +9,7 @@
 #define EPS_address 0x02
 #endif
 
-#define EPS_TLM_SIZE 42
+#define HK_SIZE 62
 #define EPS_VOLTAGE_ADDR 0x1000
 #define EPS_VOLTAGE_SIZE 6
 

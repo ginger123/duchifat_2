@@ -166,13 +166,10 @@ void taskMain()
 		// Initialize subsystems
 		initialize_subsystems(&EpsTelemetry_hk, &channels_state, &vbatt_previous);
 
-		AllinAll();
-
 		deployed = check_ants_deployed();
-		pt = FRAM_read((unsigned char *)&pt, TIME_ADDR, TIME_SIZE);
-		printf("pt%lu\n",pt);
-		Time_getUnixEpoch(&pt);
-		printf("pt%lu\n",pt);
+
+		FRAM_read((unsigned char *)&pt, TIME_ADDR, TIME_SIZE);
+
 		while(!deployed)
 		{
 			GomEpsGetHkData_general(0, &EpsTelemetry_hk);
@@ -181,7 +178,7 @@ void taskMain()
 			Time_getUnixEpoch(&rt);
 			printf("rt%lu\n",rt);
 			printf("waited for love for %lu seconds \n", rt-pt);
-			if(rt - pt >= (unsigned long)10)
+			if(rt - pt >= (unsigned long)5)
 			{
 				//deploy_ants();
 				deployed = TRUE;
@@ -212,11 +209,11 @@ void taskMain()
 			// 3. Take unix time
 			Time_getUnixEpoch(&time_now_unix);
 
-			//printf("%d", EpsTelemetry_hk.fields.vbatt);
-			if(time_now_unix - pt_hk >= 10)
+			if(time_now_unix - pt_hk >= 5)
 			{
 				pt_hk = time_now_unix;
 				HK_packet_build_save(EpsTelemetry_hk,rx_tlm,tx_tlm,ants_tlm);
+				printf("local time: %lu\n",time_now_unix);
 			}
 			// 3. get telemetry ADCS
 
@@ -239,6 +236,7 @@ void taskMain()
 			{
 				Beacon(EpsTelemetry_hk);
 			}
+
 			vTaskDelay(2000 / portTICK_RATE_MS);
 			//add data to files
 		}
