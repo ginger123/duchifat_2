@@ -431,5 +431,5 @@ void print_calibration(adcs_calibration *calibration)
 	printf("Y-Rate sensor mount angle 1 %x\n",(int)calibration->Rate_sensor_mnt_ang[0]);
 	printf("Y-Rate sensor mount angle 2 %x\n",(int)calibration->Rate_sensor_mnt_ang[1]);
 }
-}
-}
+
+

@@ -64,5 +64,6 @@ void eslADCS_setEstimationMode(adcs_estmode_t mode);
 void eslADCS_setPwrCtrlDevice(adcs_powerdev_t device_ctrl);
 void eslADCS_getEstimatedAttAngles(adcs_attangles_t *att_angles);
 void eslADCS_getCalibration(adcs_calibration *calibration);
+void print_calibration(adcs_calibration *calibration);
 
 #endif
