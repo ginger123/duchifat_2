@@ -17,6 +17,8 @@ void delete_packets_from_file(char Filename[], int ToDel[],int line_size);
 
 int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,unsigned long time_b,int *start_idx);
 
+void FileReadIndex(char Filename[],char ToWrite[], int _BUFF_SIZE, int index);
+
 void AllinAll();
 
 #endif

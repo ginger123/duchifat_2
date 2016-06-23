@@ -1,6 +1,5 @@
 /*
  * trxvu.c
-
  *
  *  Created on: 10 ???? 2016
  *      Author: Ariel
@@ -178,9 +177,11 @@ void act_upon_comm(unsigned char* in)
 				//tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
 				xTaskHandle taskDumpHandle;
 				//dump(decode.data[0],decode.data[1]);
-				dumpparam[0] = decode.data[0];
-				dumpparam[1] = decode.data[1];
-				printf("Command Dump params %x %x\n",dumpparam[0],dumpparam[1]);
+				int i = 0;
+				for(;i<11;i++)
+				{
+					dumpparam[i] = decode.data[i];
+				}
 				xTaskGenericCreate(dump, (const signed char*)"taskDump", 1024, (void *)&dumpparam[0], configMAX_PRIORITIES-2, &taskDumpHandle, NULL, NULL);
 				vTaskDelay(5000 / portTICK_RATE_MS);
 
@@ -288,58 +289,61 @@ void dump(void *arg)
 	ret = f_enterFS(); /* Register this task with filesystem */
 	ASSERT( (ret == F_NO_ERROR ), "f_enterFS pb: %d\n\r", ret);
 
-	while (1)
-	{
-		vTaskDelay(2000 / portTICK_RATE_MS);
-		AllinAll();
-	}
-
 	if(!Get_Mute())
 	{
-		unsigned char type;unsigned char am;
+		unsigned char type;unsigned long start_time; unsigned long final_time;
 		unsigned char* argument = (unsigned char*)arg;
 		printf("entered dump\n");
-		type=argument[0];
-		am=argument[1];
-		printf("type is:%d amount is: %d\n",type,am);
-		int todel[1]={0};
+		start_time = convert_epoctime((char *)argument);
+		final_time=convert_epoctime((char *)(&argument[5]));
+		type=argument[10];
 		char eps_file[] = {"EPSFILE"};//{'E','P','S','F','I','L','E'};
 		char *file;
 		int size=0;
 		int i=0;
+		int start_idx = 0;
+		int num_packets = 0;
+		unsigned char sid = 0;
 		ccsds_packet pct;
 
 		pct.srvc_type=3;
 		pct.srvc_subtype=25;
-		type=1;
-		if(type==1)//dumping eps
+
+		switch (type)
 		{
-			pct.len=EPS_TLM_SIZE+1;
-			pct.apid=10;
-			pct.data=(unsigned char*)calloc(EPS_TLM_SIZE+1,sizeof(char));
-			pct.data[0]=0x05;
-			file=eps_file;
-			size=EPS_TLM_SIZE;
-			printf("dump eps\n");
-			// filename
+			case 1://dumping EPS packet
+				sid=0x05;
+				file=eps_file;
+				size=EPS_TLM_SIZE;
+				printf("dump eps\n");
+				break;
+			case 2:
+				break;
+			case 3:
+				break;
+			default:
+				return;
+				break;
 		}
-		else if(type==0x02)
+
+		pct.len=size+1;//updates data based on the type of the packet
+		pct.apid=10;
+		pct.data=(unsigned char*)calloc(size+1,sizeof(char));
+		pct.data[0] = sid;
+		num_packets = find_number_of_packets(file,size+5,start_time,final_time,&start_idx);
+
+		for(;i<num_packets;i++)//sending packets
 		{
-		}
-		else if(type==0x03)
-		{
-		}
-		for(;i<am;i++)
-		{
-			printf("sent packet %d\n",i);
-			FileRead(eps_file ,(char *)pct.data+1, size);
+			FileReadIndex(file, (char *)pct.c_time,5,start_idx + i*(size + 5));
+			FileReadIndex(file, (char *)pct.data,size,start_idx + i*(size + 5) + 5);
+
 			//delete_packets_from_file(file, todel,size);
-			update_time(pct.c_time);
 			send_SCS_pct(pct);
+
+			printf("sent packet %d\n",i);
 
 			vTaskDelay(500 / portTICK_RATE_MS);
 		}
-
 		free(pct.data);
 	}
 }
@@ -376,7 +380,6 @@ Boolean check_ants_deployed()// NOT WORKING CAUSE ISIS CODE
 {
 	/*ISISantsSide side = isisants_sideA;
 	ISISantsStatus ants_stat;
-
 	side = isisants_sideA;
 	IsisAntS_getStatusData(0,side,&ants_stat);
 	side = isisants_sideB;
@@ -463,8 +466,8 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 		Set_Curout3V3(EpsTelemetry_hk.fields.curout[4]);
 		Set_Curout5V(EpsTelemetry_hk.fields.curout[0]);
 		Set_tempCOMM(eng_value);
-		Set_tempEPS(EpsTelemetry_hk.fields.temp[0]+60);
-		Set_tempBatt(EpsTelemetry_hk.fields.temp[4]+60);
+		Set_tempEPS(EpsTelemetry_hk.fields.temp[0]);
+		Set_tempBatt(EpsTelemetry_hk.fields.temp[4]);
 		dat[1]= glb.Mnlp_State;
 		dat[2]=glb.vbatt;
 		dat[3]=glb.cursys;

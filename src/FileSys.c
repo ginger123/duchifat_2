@@ -193,7 +193,7 @@ int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,uns
 	file2 = f_open( Filename, "r" ); // open file for reading, which is always safe
 	ASSERT( ( file2 ), "f_open pb: %d\n\r", f_getlasterror() ); // if file pointer is NULL, get the error
 
-	while( curr_time<=time_b) // do this for every char in the line
+	while( curr_time < time_b) // do this for every char in the line
 	{
 		f_read( temp, 1, linesize , file2 );
 		curr_time = convert_epoctime(temp);
