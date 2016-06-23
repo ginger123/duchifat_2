@@ -1,20 +1,5 @@
 #include "main.h"
 
-#define ENABLE_MAIN_TRACES 1
-#if ENABLE_MAIN_TRACES
-#define MAIN_TRACE_INFO			TRACE_INFO
-#define MAIN_TRACE_DEBUG		TRACE_DEBUG
-#define MAIN_TRACE_WARNING		TRACE_WARNING
-#define MAIN_TRACE_ERROR		TRACE_ERROR
-#define MAIN_TRACE_FATAL		TRACE_FATAL
-#else
-#define MAIN_TRACE_INFO(...)	{ }
-#define MAIN_TRACE_DEBUG(...)	{ }
-#define MAIN_TRACE_WARNING(...)	{ }
-#define MAIN_TRACE_ERROR		TRACE_ERROR
-#define MAIN_TRACE_FATAL		TRACE_FATAL
-#endif
-
 void InitializeFS()
 {
 	int ret;
@@ -125,13 +110,15 @@ void FileReadIndex(char Filename[],char ToWrite[], int _BUFF_SIZE, int index) //
 	int br;
 	F_FILE *file;
 	int ret=0;
-	int i=0;
+	//int i=0;
 	file = f_open( Filename, "r" ); /* open file for reading, which is always safe */
 	ASSERT( ( file ), "f_open pb: %d\n\r", f_getlasterror() ); /* if file pointer is NULL, get the error */
-	for(; i<index+1;i++)
-	{
-		br = f_read( ToWrite, 1, _BUFF_SIZE, file );
-	}
+	//for(; i<index+1;i++)
+	//{
+	//	br = f_read( ToWrite, 1, _BUFF_SIZE, file );
+	//}
+	f_seek( file, index*_BUFF_SIZE, SEEK_SET );
+	br = f_read( ToWrite, 1, _BUFF_SIZE, file );
 	ASSERT( ( _BUFF_SIZE == br ),  "f_read pb: %d\n\r", f_getlasterror() ); /* if bytes to read doesn't equal bytes read, get the error */
 
 	ret = f_close( file );
@@ -194,126 +181,109 @@ void delete_packets_from_file(char Filename[], int ToDel[],int line_size)
 	//}
 }
 
-int AllinAll()
+int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,unsigned long time_b,int *start_idx)
 {
+	// loop over packets in file - for each line: a. convert time to long int, b. check if in range
 
-	int i;
-	char br[28];
-	printf("starting SD test\n");
-	char filename[]={"test_file"};
+	char temp[linesize];
+	F_FILE *file2;
+	*start_idx = 0;
+	unsigned long curr_time=0;
+	int num=0;
+	file2 = f_open( Filename, "r" ); // open file for reading, which is always safe
+	ASSERT( ( file2 ), "f_open pb: %d\n\r", f_getlasterror() ); // if file pointer is NULL, get the error
 
-	char ToWrite_a[] = {0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x01,0x02,0x03,0x04,0x05,0x06,0x07};
-	char ToWrite_b[] = {0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E};
-	int _BUFF_SIZE = 14;
-	int ToDel[] = {0};
-	//InitializeFS();
-	printf("Initialize File system SD test\n");
-
-	WritewithEpochtime(filename, 0, ToWrite_a, _BUFF_SIZE);
-
-	vTaskDelay(5000 / portTICK_RATE_MS);
-
-	WritewithEpochtime(filename, 0, ToWrite_b, _BUFF_SIZE);
-
-	//FileWrite(filename, 0, ToWrite_b, _BUFF_SIZE);
-
-
-	//delete_packets_from_file(filename, ToDel, _BUFF_SIZE);
-
-	FileRead(filename,br, _BUFF_SIZE+5);
-
-	for (i=0;i<_BUFF_SIZE;i++)
+	while( curr_time<=time_b) // do this for every char in the line
 	{
-		printf("%x ",(int)br[i]);
-	}
-	printf("\n");
-	FileRead(filename,br, _BUFF_SIZE+5);
-
-	for (i=0;i<_BUFF_SIZE;i++)
-	{
-		printf("%x ",(int)br[i]);
-	}
-	printf("\n");
-
-	//DeInitializeFS(0);
-	//DEMO_SD_TRACE_INFO( "SD Card (%d) de-initialization completed!\n\r", volID );
-	return 0;
-}
-
-int AllinAll_b()
-{
-
-	int i;
-	char br[28];
-	printf("starting SD test\n");
-	char filename[]={"test_file"};
-
-	char ToWrite_a[] = {0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x01,0x02,0x03,0x04,0x05,0x06,0x07};
-	char ToWrite_b[] = {0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E};
-	int _BUFF_SIZE = 14;
-	int ToDel[] = {0};
-	//InitializeFS();
-	printf("Initialize File system SD test\n");
-
-	//FileWrite(filename, 0, ToWrite_a, _BUFF_SIZE);
-	//FileWrite(filename, 0, ToWrite_b, _BUFF_SIZE);
-	printf("Write to SD test\n");
-
-	//delete_packets_from_file(filename, ToDel, _BUFF_SIZE);
-
-	FileRead(filename,br, _BUFF_SIZE);
-
-	for (i=0;i<_BUFF_SIZE;i++)
-	{
-		printf("%x ",(int)br[i]);
-	}
-	printf("\n");
-	//DeInitializeFS(0);
-	//DEMO_SD_TRACE_INFO( "SD Card (%d) de-initialization completed!\n\r", volID );
-	return 0;
-}
-
-int AiAaD_Fulltest()
-{
-	int i;
-	char br[20],br_2[20];
-	printf("starting SD test\n");
-	char filename[]={"test_file"};
-	char filename2[]={"test_file2"};
-	char ToWrite[] = {0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x01,0x02,0x03,0x04,0x05,0x06,0x07};
-	int _BUFF_SIZE = 14;
-	int ToDel[] = {0};
-
-	InitializeFS();
-	printf("Initialize File system SD test\n");
-
-	FileWrite(filename, 0, ToWrite, _BUFF_SIZE);
-
-	FileWrite(filename2, 0, ToWrite, _BUFF_SIZE);
-	printf("Write to SD test\n");
-
-	FileRead(filename,br, _BUFF_SIZE);
-	FileRead(filename2,br_2, _BUFF_SIZE);
-
-	delete_packets_from_file(filename, ToDel, _BUFF_SIZE);
-
-
-	//printf("%s\n",br);
-
-	for( i = 0; i < _BUFF_SIZE; i++)
-	{
-		if(ToWrite[i]!= br[i])
+		f_read( temp, 1, linesize , file2 );
+		curr_time = convert_epoctime(temp);
+		printf("curr time is %lu last time is %lu\n",curr_time,time_b);
+		if(curr_time> time_a)
 		{
-			DeInitializeFS(0);
-			//DEMO_SD_TRACE_INFO( "SD Card (%d) de-initialization completed!\n\r", volID );
-			return 0;
+			num++;
 		}
-
+		else
+		{
+			(*start_idx)++;
+		}
+		vTaskDelay(2000);
 	}
-	DeInitializeFS(0);
-	//DEMO_SD_TRACE_INFO( "SD Card (%d) de-initialization completed!\n\r", volID );
+	f_close(file2);
+	return num;
+}
 
-	return 0;
+
+void AllinAll()
+{
+
+	int i,j;
+
+	printf("starting SD test\n");
+	char filename[]={"test_file"};
+	int _BUFF_SIZE = 10;
+	char ToWrite_a[] = {0x01,0x02,0x03,0x01,0x02,0x03,0x01,0x02,0x03,0x00};
+	char ToWrite_b[] = {0x04,0x05,0x06,0x04,0x05,0x06,0x04,0x05,0x06,0x00};
+	char ToWrite_c[] = {0x07,0x08,0x09,0x07,0x08,0x09,0x07,0x08,0x09,0x00};
+	//char ToWrite_d[] = {0x08,0x09,0x0A,0x08,0x09,0x0A,0x08,0x09,0x0A,0x00};
+	//char ToWrite_e[] = {0x0B,0x0C,0x0D,0x0B,0x0C,0x0D,0x0B,0x0C,0x0D,0x00};
+	char ToRead[_BUFF_SIZE+5];
+
+
+
+	int num_packets;
+	int start_idx;
+	unsigned long t_start,t_b,t_c,t_finish;
+
+	printf("Initialize File system SD test\n");
+	Time_getUnixEpoch(&t_start);
+	t_start=t_start-30*365*24*3600;
+	t_start=t_start-24*3600*7;
+
+	for (i=0;i<4;i++)
+	{
+		printf("%d\n",i);
+		WritewithEpochtime(filename, 0, ToWrite_a, _BUFF_SIZE);
+		vTaskDelay(3000 / portTICK_RATE_MS);
+	}
+	Time_getUnixEpoch(&t_b);
+	t_b=t_b-30*365*24*3600;
+	t_b=t_b-24*3600*7;
+	for (i=0;i<4;i++)
+	{
+		printf("%d\n",i);
+		WritewithEpochtime(filename, 0, ToWrite_b, _BUFF_SIZE);
+		vTaskDelay(3000 / portTICK_RATE_MS);
+	}
+	Time_getUnixEpoch(&t_c);
+	t_c=t_c-30*365*24*3600;
+	t_c=t_c-24*3600*7;
+	for (i=0;i<4;i++)
+	{
+		printf("%d\n",i);
+		WritewithEpochtime(filename, 0, ToWrite_c, _BUFF_SIZE);
+		vTaskDelay(3000 / portTICK_RATE_MS);
+	}
+	Time_getUnixEpoch(&t_finish);
+	t_finish=t_finish-30*365*24*3600;
+	t_finish=t_finish-24*3600*7;
+
+	num_packets = find_number_of_packets(filename,_BUFF_SIZE+5,t_b,t_c,&start_idx);
+	printf("start time is %lu, finish time is %lu, num packets is %d, start idx is %d\n",t_start,t_finish,num_packets,start_idx);
+
+
+
+	// print only relevant packets
+	for (i=0;i<num_packets;i++)
+	{
+		FileReadIndex(filename,ToRead,_BUFF_SIZE+5,start_idx+i);
+		for (j=0;j<_BUFF_SIZE;j++)
+		{
+			printf("%0x ",ToRead[j]);
+		}
+		printf("l\n");
+	}
+
+
 }
 
 

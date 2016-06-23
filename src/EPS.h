@@ -1,10 +1,3 @@
-/*
- * EPS.h
- *
- *  Created on: 21 αιπε 2016
- *      Author: LAVIAN
- */
-
 #ifndef EPS_H_
 #define EPS_H_
 

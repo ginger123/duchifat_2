@@ -34,7 +34,7 @@ void Set_Curout5V(unsigned short curout);
 void Set_tempCOMM(short temp);
 void Set_tempEPS(short temp);
 void Set_tempBatt(short temp);
-
+unsigned long convert_epoctime(char packet[]);
 
 Boolean Get_Mute();
 

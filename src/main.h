@@ -48,7 +48,7 @@
 #include "IsisTRXVU.h"
 #include "Time.h"
 
-
+// define FRAM addresses
 
 
 extern unsigned char frame_count;

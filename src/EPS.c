@@ -3,8 +3,8 @@
 
 void EPS_Power_Conditioning(gom_eps_hk_t* EPS_Cur_TLM, unsigned short* Vbatt_Previous, gom_eps_channelstates_t* channels_state)
 {
-	unsigned char voltages[6];
-	FRAM_read(voltages, EPS_VOLTAGE_ADDR,6);
+	unsigned char voltages[EPS_VOLTAGE_SIZE];
+	FRAM_read(voltages, EPS_VOLTAGE_ADDR,EPS_VOLTAGE_SIZE);
 	if(EPS_Cur_TLM->fields.vbatt < *Vbatt_Previous) // in case of battery discharge
 	{
 		if(EPS_Cur_TLM->fields.vbatt < (int)voltages[0]*100 && channels_state->fields.channel3V3_1 == 1)
@@ -51,7 +51,6 @@ void EPS_Power_Conditioning(gom_eps_hk_t* EPS_Cur_TLM, unsigned short* Vbatt_Pre
 	{
 		COMPONENT_On_Off = COMPONENT_On_Off & (No_Over_Current); // Leaving over current state
 	}
-
 	if((EPS_Cur_TLM->fields.temp[0]> 69 || EPS_Cur_TLM->fields.temp[1]> 69 || EPS_Cur_TLM->fields.temp[2]> 69 || EPS_Cur_TLM->fields.temp[3]> 69 || EPS_Cur_TLM->fields.temp[4]>69 ||EPS_Cur_TLM->fields.temp[5]> 69) && (COMPONENT_On_Off&Over_Heat_bit) == 0)
 	{
 		COMPONENT_On_Off = COMPONENT_On_Off | (Over_Heat_bit);
@@ -69,8 +68,8 @@ void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state
 	unsigned char EPS_addr = EPS_address;
 	GomEpsInitialize(&EPS_addr, 1);
 	GomEpsGetHkData_general(EPS_address, EPS_Cur_TLM);
-	unsigned char voltages[6];
-	FRAM_read(voltages, EPS_VOLTAGE_ADDR,6);
+	unsigned char voltages[EPS_VOLTAGE_SIZE];
+	FRAM_read(voltages, EPS_VOLTAGE_ADDR,EPS_VOLTAGE_SIZE);
 
 	if(EPS_Cur_TLM->fields.vbatt < voltages[0]*100)
 	{
@@ -209,9 +208,7 @@ void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTeleme
 
 	//Antena
 	Packet->HK_ants_temperature = antstlm.fields.ants_temperature;
-	Packet->ant = antstlm.fields.ants_deployment.raw;
+	Packet->ant = antstlm.fields.ants_deployment.raw[1]*256 + antstlm.fields.ants_deployment.raw[0];
 				//COMM END
 	FileWrite(sd_file_name, 0,(char *)Packet,sizeof(HK_Struct));
 }
-
-

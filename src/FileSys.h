@@ -15,10 +15,8 @@ void FileRead(char Filename[],char ToWrite[], int _BUFF_SIZE);
 
 void delete_packets_from_file(char Filename[], int ToDel[],int line_size);
 
-int AiAaD_Fulltest();
+int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,unsigned long time_b,int *start_idx);
 
-int AllinAll();
-
-int AllinAll_b();
+void AllinAll();
 
 #endif

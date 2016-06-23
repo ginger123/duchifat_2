@@ -233,22 +233,22 @@ void eslADCS_getPwrTempTlm(adcs_pwrtemptlm_t* pwrtemp_tlm)
 
 }
 
-void eslADCS_telemetry_Time_Power_temp()
+void eslADCS_telemetry_Time_Power_temp(ADCS_telemetry_data *telemetry_data)
 {
 	adcs_pwrtemptlm_t pwrtemp_tlm;
-	ADCS_telemetry_data telemetry_data;
+
 	eslADCS_getPwrTempTlm(&pwrtemp_tlm);
-	telemetry_data.csense_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
-	telemetry_data.csense_nadirSRAMcurr = pwrtemp_tlm.fields.csense_nadirSRAMcurr;
-	telemetry_data.csense_sunSRAMcurr = pwrtemp_tlm.fields.csense_sunSRAMcurr;
-	telemetry_data.arm_cpuTemp = pwrtemp_tlm.fields.arm_cpuTemp;
-	telemetry_data.ccontrol_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
-	telemetry_data.ccontrol_5Vcurr = pwrtemp_tlm.fields.ccontrol_5Vcurr;
-	telemetry_data.ccontrol_Vbatcurr = pwrtemp_tlm.fields.ccontrol_Vbatcurr;
-	telemetry_data.magtorquer_curr = pwrtemp_tlm.fields.magtorquer_curr;
-	telemetry_data.momentum_wheelcurr = pwrtemp_tlm.fields.momentum_wheelcurr;
-	telemetry_data.ratesensor_temp = pwrtemp_tlm.fields.ratesensor_temp;
-	telemetry_data.magnetometer_temp = pwrtemp_tlm.fields.magnetometer_temp;
+	telemetry_data->csense_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
+	telemetry_data->csense_nadirSRAMcurr = pwrtemp_tlm.fields.csense_nadirSRAMcurr;
+	telemetry_data->csense_sunSRAMcurr = pwrtemp_tlm.fields.csense_sunSRAMcurr;
+	telemetry_data->arm_cpuTemp = pwrtemp_tlm.fields.arm_cpuTemp;
+	telemetry_data->ccontrol_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
+	telemetry_data->ccontrol_5Vcurr = pwrtemp_tlm.fields.ccontrol_5Vcurr;
+	telemetry_data->ccontrol_Vbatcurr = pwrtemp_tlm.fields.ccontrol_Vbatcurr;
+	telemetry_data->magtorquer_curr = pwrtemp_tlm.fields.magtorquer_curr;
+	telemetry_data->momentum_wheelcurr = pwrtemp_tlm.fields.momentum_wheelcurr;
+	telemetry_data->ratesensor_temp = pwrtemp_tlm.fields.ratesensor_temp;
+	telemetry_data->magnetometer_temp = pwrtemp_tlm.fields.magnetometer_temp;
 }
 
 void eslADCS_Magnetometer_Boom_Deployment_Enabled(Boolean* Magnetometer_Status)
@@ -256,7 +256,7 @@ void eslADCS_Magnetometer_Boom_Deployment_Enabled(Boolean* Magnetometer_Status)
 	unsigned char comm = 136;
 	unsigned char data[48];
 	I2C_write(0x12, &comm, 1);
-	vTaskDelay(50 / portTICK_RATE_MS);
+	vTaskDelay(5 / portTICK_RATE_MS);
 	I2C_read(0x12, data, 48);
 	Magnetometer_Status = data[12];
 }
@@ -307,4 +307,19 @@ void eslADCS_getRawMagnetometerMeas(adcs_raw_magmeter_t* raw_mag)
 	raw_mag->fields.magnetic_y += data[3];
 	raw_mag->fields.magnetic_z = data[4] << 8;
 	raw_mag->fields.magnetic_z += data[5];
+}
+
+void ADCS_payload_Telemetry(ADCS_Payload_Telemetry *Payload_Telemtry)
+{
+	adcs_angrate_t ang_rates;
+	adcs_attangles_t att_angles;
+
+	eslADCS_getEstimatedAttAngles(&att_angles);
+	Payload_Telemtry->estimated_attitude_angles[0] = att_angles.fields.roll;
+	Payload_Telemtry->estimated_attitude_angles[1] = att_angles.fields.pitch;
+	Payload_Telemtry->estimated_attitude_angles[2] = att_angles.fields.yaw;
+	eslADCS_getEstimatedAngRates(&ang_rates);
+	Payload_Telemtry->estimated_anglar_rates[0] = ang_rates.fields.x_angrate;
+	Payload_Telemtry->estimated_anglar_rates[1] = ang_rates.fields.y_angrate;
+	Payload_Telemtry->estimated_anglar_rates[2] = ang_rates.fields.z_angrate;
 }

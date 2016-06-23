@@ -29,26 +29,7 @@ typedef struct ADCS_comissioning_data
 	short wheel_speed_command[3];
 }ADCS_comissioning_data;
 
-typedef struct ADCS_telemetry_data
-{
-	unsigned short csense_3v3curr;
-	unsigned char csense_nadirSRAMcurr;
-	unsigned char csense_sunSRAMcurr;
-	unsigned short arm_cpuTemp;
-	unsigned short ccontrol_3v3curr;
-	unsigned short ccontrol_5Vcurr;
-	unsigned short ccontrol_Vbatcurr;
-	unsigned short magtorquer_curr;
-	unsigned short momentum_wheelcurr;
-	char ratesensor_temp;
-	char magnetometer_temp;
-}ADCS_telemetry_data;
 
-typedef struct ADCS_Payload_Telametry
-{
-	short estimated_anglar_rates[3];
-	short estimated_attitude_angles[3];
-}ADCS_Payload_Telemetry;
 
 extern int adcs_advance_stage;
 extern int adcs_stage;

@@ -1,6 +1,5 @@
 /*
  * trxvu.c
-
  *
  *  Created on: 10 ???? 2016
  *      Author: Ariel
@@ -376,7 +375,6 @@ Boolean check_ants_deployed()// NOT WORKING CAUSE ISIS CODE
 {
 	/*ISISantsSide side = isisants_sideA;
 	ISISantsStatus ants_stat;
-
 	side = isisants_sideA;
 	IsisAntS_getStatusData(0,side,&ants_stat);
 	side = isisants_sideB;

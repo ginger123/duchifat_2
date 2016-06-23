@@ -148,8 +148,6 @@ void initialize_subsystems(gom_eps_hk_t* EpsTelemetry_hk, gom_eps_channelstates_
 
 void taskMain()
 {
-	int j = 0;
-	unsigned long t;
 		unsigned short vbatt_previous;
 		//ADCS_CUR_STATE ADc;
 		//ADc.flag = 0;
@@ -164,12 +162,9 @@ void taskMain()
 
 		// Initialize subsystems
 		initialize_subsystems(&EpsTelemetry_hk, &channels_state, &vbatt_previous);
-		for(;j<5;j++)
-		{
-			Time_getUnixEpoch(&t);
-			printf("time is %lu\n",t);
-			vTaskDelay(3000);
-		}
+
+		AllinAll();
+
 		deployed = check_ants_deployed();
 		pt = FRAM_read((unsigned char *)&pt, TIME_ADDR, TIME_SIZE);
 		printf("pt%lu\n",pt);
@@ -177,12 +172,12 @@ void taskMain()
 		printf("pt%lu\n",pt);
 		while(!deployed)
 		{
-			printf("waiting for love for 30 minutes \n");
 			GomEpsGetHkData_general(0, &EpsTelemetry_hk);
 			EPS_Power_Conditioning(&EpsTelemetry_hk, &vbatt_previous, &channels_state);
 			unsigned long rt;
 			Time_getUnixEpoch(&rt);
 			printf("rt%lu\n",rt);
+			printf("waited for love for %lu seconds \n", rt-pt);
 			if(rt - pt >= (unsigned long)10)
 			{
 				//deploy_ants();
@@ -196,9 +191,9 @@ void taskMain()
 
 		int counter = 0;
 		unsigned long pt_beacon = pt;
+		printf("love was given\n");
 		while(1)
 		{
-			printf("love was given\n");
 			// 1. get telemetry trxvu
 			vurc_getRxTelemTest(&rxtlm);
 
@@ -261,7 +256,7 @@ int main() {
 	WDT_start();
 	printf("\t main: Starting main task.. \n\r");
 	xTaskGenericCreate(taskMain, (const signed char*)"taskMain", 1024, NULL, configMAX_PRIORITIES-2, &taskMainHandle, NULL, NULL);
-	xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
+	//xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
 
 	printf("\t main: Starting scheduler.. \n\r");
 	vTaskStartScheduler();

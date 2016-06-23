@@ -81,3 +81,16 @@ Boolean Get_Mute()
 	}
 	return FALSE;
 }
+
+unsigned long convert_epoctime(char packet[])
+{
+	//get the epoctime signature from the packet sent
+	unsigned long tl=0;
+	tl += packet[0]<<24;
+	tl += packet[1]<<16;
+	tl += packet[2]<<8;
+	tl += packet[3];
+	//printf("final answer is %lu\n",tl);
+	return tl;
+}
+
