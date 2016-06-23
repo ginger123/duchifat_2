@@ -297,7 +297,7 @@ void dump(void *arg)
 		start_time = convert_epoctime((char *)argument);
 		final_time=convert_epoctime((char *)(&argument[5]));
 		type=argument[10];
-		char eps_file[] = {"EPSFILE"};//{'E','P','S','F','I','L','E'};
+		char HK_packets[] = {"HK_packets"};
 		char *file;
 		int size=0;
 		int i=0;
@@ -311,9 +311,9 @@ void dump(void *arg)
 
 		switch (type)
 		{
-			case 1://dumping EPS packet
+			case 1://dumping HK packet packet
 				sid=0x05;
-				file=eps_file;
+				file=HK_packets;
 				size=EPS_TLM_SIZE;
 				printf("dump eps\n");
 				break;

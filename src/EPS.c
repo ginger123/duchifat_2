@@ -166,49 +166,49 @@ void Write_F_EPS_TLM(gom_eps_hk_t* EPS_CUR_TLM)
 	FileWrite(EPS_File, 0, eps_tlm, EPS_TLM_SIZE);
 }
 
-void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm)
+void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm)
 {
-
+	HK_Struct Packet;
 	char sd_file_name[] = {"HK_packets"};
-	Packet->sid=166;
+	Packet.sid=166;
 	//EPS PARAM START
-	Packet->HK_vbatt = tlm.fields.vbatt;
-	Packet->HK_vboost[0] = tlm.fields.vboost[0];
-	Packet->HK_vboost[1] = tlm.fields.vboost[1];
-	Packet->HK_vboost[2] = tlm.fields.vboost[2];
-	Packet->HK_curin[0] = tlm.fields.curin[0];
-	Packet->HK_curin[1] = tlm.fields.curin[1];
-	Packet->HK_curin[2] = tlm.fields.curin[2];
-	Packet->HK_temp[0] = tlm.fields.temp[0];
-	Packet->HK_temp[1] = tlm.fields.temp[1];
-	Packet->HK_temp[2] = tlm.fields.temp[2];
-	Packet->HK_temp[3] = tlm.fields.temp[3];
-	Packet->HK_temp[4] = tlm.fields.temp[4];
-	Packet->HK_temp[5] = tlm.fields.temp[5];
-	Packet->HK_cursys = tlm.fields.cursys;
-	Packet->HK_cursun = tlm.fields.cursun;
-	Packet->HK_states = states;
+	Packet.HK_vbatt = tlm.fields.vbatt;
+	Packet.HK_vboost[0] = tlm.fields.vboost[0];
+	Packet.HK_vboost[1] = tlm.fields.vboost[1];
+	Packet.HK_vboost[2] = tlm.fields.vboost[2];
+	Packet.HK_curin[0] = tlm.fields.curin[0];
+	Packet.HK_curin[1] = tlm.fields.curin[1];
+	Packet.HK_curin[2] = tlm.fields.curin[2];
+	Packet.HK_temp[0] = tlm.fields.temp[0];
+	Packet.HK_temp[1] = tlm.fields.temp[1];
+	Packet.HK_temp[2] = tlm.fields.temp[2];
+	Packet.HK_temp[3] = tlm.fields.temp[3];
+	Packet.HK_temp[4] = tlm.fields.temp[4];
+	Packet.HK_temp[5] = tlm.fields.temp[5];
+	Packet.HK_cursys = tlm.fields.cursys;
+	Packet.HK_cursun = tlm.fields.cursun;
+	Packet.HK_states = states;
 	//EPS PARAM END
 
 				//COMM START
 	//RX
-	Packet->HK_rx_doppler = tlmRX.fields.rx_doppler;
-	Packet->HK_rx_rssi = tlmRX.fields.rx_rssi;
-	Packet->HK_rx_bus_volt = tlmRX.fields.bus_volt;
-	Packet->HK_rx_lo_temp = tlmRX.fields.board_temp;
-	Packet->HK_rx_supply_curr = tlmRX.fields.rx_current;
-	IsisTrxvu_rcGetUptime(0,Packet->HK_rx_uptime);
+	Packet.HK_rx_doppler = tlmRX.fields.rx_doppler;
+	Packet.HK_rx_rssi = tlmRX.fields.rx_rssi;
+	Packet.HK_rx_bus_volt = tlmRX.fields.bus_volt;
+	Packet.HK_rx_lo_temp = tlmRX.fields.board_temp;
+	Packet.HK_rx_supply_curr = tlmRX.fields.rx_current;
+	IsisTrxvu_rcGetUptime(0,Packet.HK_rx_uptime);
 
 	//TX
-	Packet->HK_tx_pa_temp = tlmTX.fields.pa_temp;
-	Packet->HK_tx_supply_curr = tlmTX.fields.tx_current;
-	Packet->HK_tx_power_fwd_dbm = tlmTX.fields.tx_reflpwr;
-	Packet->HK_tx_power_refl_dbm = tlmTX.fields.tx_fwrdpwr;
-	IsisTrxvu_tcGetUptime(0,Packet->HK_tx_uptime);
+	Packet.HK_tx_pa_temp = tlmTX.fields.pa_temp;
+	Packet.HK_tx_supply_curr = tlmTX.fields.tx_current;
+	Packet.HK_tx_power_fwd_dbm = tlmTX.fields.tx_reflpwr;
+	Packet.HK_tx_power_refl_dbm = tlmTX.fields.tx_fwrdpwr;
+	IsisTrxvu_tcGetUptime(0,Packet.HK_tx_uptime);
 
 	//Antena
-	Packet->HK_ants_temperature = antstlm.fields.ants_temperature;
-	Packet->ant = antstlm.fields.ants_deployment.raw[1]*256 + antstlm.fields.ants_deployment.raw[0];
+	Packet.HK_ants_temperature = antstlm.fields.ants_temperature;
+	Packet.ant = antstlm.fields.ants_deployment.raw[1]*256 + antstlm.fields.ants_deployment.raw[0];
 				//COMM END
-	FileWrite(sd_file_name, 0,(char *)Packet,sizeof(HK_Struct));
+	FileWrite(sd_file_name, 0,(char *)&Packet,sizeof(HK_Struct));
 }

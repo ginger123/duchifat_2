@@ -154,6 +154,9 @@ void taskMain()
 		gom_eps_channelstates_t channels_state;
 		gom_eps_hk_t EpsTelemetry_hk;
 		isisRXtlm rxtlm;
+		ISIStrxvuRxTelemetry rx_tlm;
+		ISIStrxvuTxTelemetry tx_tlm;
+		ISISantsTelemetry ants_tlm;
 		unsigned long start_gs_time;
 		unsigned long time_now_unix;
 		unsigned long pt;
@@ -189,13 +192,19 @@ void taskMain()
 			vTaskDelay(1000);
 		}
 
-		int counter = 0;
 		unsigned long pt_beacon = pt;
+		unsigned long pt_hk = pt;
 		printf("love was given\n");
 		while(1)
 		{
 			// 1. get telemetry trxvu
 			vurc_getRxTelemTest(&rxtlm);
+
+			IsisTrxvu_rcGetTelemetryAll(0, &rx_tlm);
+
+			IsisTrxvu_tcGetTelemetryAll(0,&tx_tlm);
+
+			IsisAntS_getAlltelemetry(0, isisants_sideA, &ants_tlm);
 
 			// 2. get telemetry EPS
 			GomEpsGetHkData_general(0, &EpsTelemetry_hk);
@@ -204,10 +213,10 @@ void taskMain()
 			Time_getUnixEpoch(&time_now_unix);
 
 			//printf("%d", EpsTelemetry_hk.fields.vbatt);
-			if(counter>=5)
+			if(time_now_unix - pt_hk >= 10)
 			{
-				counter = 0;
-				Write_F_EPS_TLM(&EpsTelemetry_hk);
+				pt_hk = time_now_unix;
+				HK_packet_build_save(EpsTelemetry_hk,rx_tlm,tx_tlm,ants_tlm);
 			}
 			// 3. get telemetry ADCS
 
@@ -216,7 +225,6 @@ void taskMain()
 
 			trxvu_logic(&start_gs_time, &time_now_unix);
 
-			counter++;
 			// 6. mNLP
 			//if(!(states & STATE_GS))
 			//{

@@ -57,7 +57,7 @@ void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state
 void Cruse(gom_eps_channelstates_t* channels_state);
 void Safe(gom_eps_channelstates_t* channels_state);
 void Write_F_EPS_TLM(gom_eps_hk_t* EPS_CUR_TLM);
-void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm);
+void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm);
 
 
 #endif /* EPS_H_ */
