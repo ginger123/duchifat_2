@@ -1,4 +1,6 @@
 #include "main.h"
+#include "ADCS_operations.h"
+#include "ADCS_Thread.h"
 
 #ifndef NULL
 #define NULL ( (void *) 0)
@@ -322,4 +324,112 @@ void ADCS_payload_Telemetry(ADCS_Payload_Telemetry *Payload_Telemtry)
 	Payload_Telemtry->estimated_anglar_rates[0] = ang_rates.fields.x_angrate;
 	Payload_Telemtry->estimated_anglar_rates[1] = ang_rates.fields.y_angrate;
 	Payload_Telemtry->estimated_anglar_rates[2] = ang_rates.fields.z_angrate;
+}
+
+
+void eslADCS_getCalibration(adcs_calibration *calibration)
+{
+	unsigned char comm = 192;
+	unsigned char data[150];
+	I2C_write(0x12, &comm, 1);
+	I2C_read(0x12, data, 150);
+	calibration->mtq[0] = data[0];
+	calibration->mtq[1] = data[1];
+	calibration->mtq[0] = data[2];
+	calibration->mtq_max_mnt[0] = data[3]<<8;
+	calibration->mtq_max_mnt[0] += data[4];
+	calibration->mtq_max_mnt[1] = data[5]<<8;
+	calibration->mtq_max_mnt[1] += data[6];
+	calibration->mtq_max_mnt[2] = data[7]<<8;
+	calibration->mtq_max_mnt[2] += data[8];
+	calibration->wheel_mnt_ang[0] = data[13]<<8;
+	calibration->wheel_mnt_ang[0] += data[14];
+	calibration->wheel_mnt_ang[1] = data[15]<<8;
+	calibration->wheel_mnt_ang[1] += data[16];
+	calibration->mtq_mnt_ang[0] = data[114]<<8;
+	calibration->mtq_mnt_ang[0] += data[115];
+	calibration->mtq_mnt_ang[1] = data[116]<<8;
+	calibration->mtq_mnt_ang[1] += data[117];
+	calibration->mtq_mnt_ang[2] = data[118]<<8;
+	calibration->mtq_mnt_ang[2] += data[119];
+	calibration->mtq_chanel[0] = data[120]<<8;
+	calibration->mtq_chanel[0] += data[121];
+	calibration->mtq_chanel[1] = data[122]<<8;
+	calibration->mtq_chanel[1] += data[123 ];
+	calibration->mtq_chanel[2] = data[122]<<8;
+	calibration->mtq_chanel[2] += data[125];
+	calibration->mtq_sens_matrix[0] = data[126]<<8;
+	calibration->mtq_sens_matrix[0] += data[127];
+	calibration->mtq_sens_matrix[1] = data[128]<<8;
+	calibration->mtq_sens_matrix[1] += data[129];
+	calibration->mtq_sens_matrix[2] = data[130]<<8;
+	calibration->mtq_sens_matrix[2] += data[131];
+	calibration->Nadir_sensor_mnt_ang[0] = data[57]<<8;
+	calibration->Nadir_sensor_mnt_ang[0] += data[58];
+	calibration->Nadir_sensor_mnt_ang[1] = data[59]<<8;
+	calibration->Nadir_sensor_mnt_ang[1] += data[60];
+	calibration->sun_sensor_mnt_ang[0] = data[40]<<8;
+	calibration->sun_sensor_mnt_ang[0] += data[41];
+	calibration->sun_sensor_mnt_ang[1] = data[42]<<8;
+	calibration->sun_sensor_mnt_ang[1] += data[43];
+	calibration->sun_sensor_mnt_ang[2] = data[44]<<8;
+	calibration->sun_sensor_mnt_ang[2] += data[45];
+	calibration->css[0] = data[26];
+	calibration->css[1] += data[27];
+	calibration->css[2] += data[28];
+	calibration->css[3] += data[29];
+	calibration->css[4] += data[30];
+	calibration->css[5] += data[31];
+	calibration->Rate_sensor_mnt_ang[0] = data[146]<<8;
+	calibration->Rate_sensor_mnt_ang[0] += data[147];
+	calibration->Rate_sensor_mnt_ang[2] = data[148]<<8;
+	calibration->Rate_sensor_mnt_ang[2] += data[149];
+
+
+}
+
+void print_calibration(adcs_calibration *calibration)
+{
+	printf("Magnetorquer 1 %x\n",(int)calibration->mtq[0]);
+	printf("Magnetorquer 2 %x\n",(int)calibration->mtq[1]);
+	printf("Magnetorquer 3 %x\n",(int)calibration->mtq[2]);
+
+	printf("X Magnetorquer Max Moment %x\n",(int)calibration->mtq_max_mnt[0]);
+	printf("y Magnetorquer Max Moment %x\n",(int)calibration->mtq_max_mnt[1]);
+	printf("z Magnetorquer Max Moment %x\n",(int)calibration->mtq_max_mnt[2]);
+
+	printf("Weel mount angle 1 %x\n",(int)calibration->wheel_mnt_ang[0]);
+	printf("Weel mount angle 2 %x\n",(int)calibration->wheel_mnt_ang[1]);
+
+	printf("Magnetometer mount angel 1 %x\n",(int)calibration->mtq_mnt_ang[0]);
+	printf("Magnetometer mount angel 2 %x\n",(int)calibration->mtq_mnt_ang[1]);
+	printf("Magnetometer mount angel 3 %x\n",(int)calibration->mtq_mnt_ang[2]);
+
+	printf("Magnetometer chanel 1 offset %x\n",(int)calibration->mtq_chanel[0]);
+	printf("Magnetometer chanel 2 offset %x\n",(int)calibration->mtq_chanel[1]);
+	printf("Magnetometer chanel 3 offset %x\n",(int)calibration->mtq_chanel[2]);
+
+	printf("Magnetometer sensitivity matrix s11  %x\n",(int)calibration->mtq_sens_matrix[0]);
+	printf("Magnetometer sensitivity matrix s12  %x\n",(int)calibration->mtq_sens_matrix[1]);
+	printf("Magnetometer sensitivity matrix s13  %x\n",(int)calibration->mtq_sens_matrix[2]);
+
+	printf("Nadir sensor mount angle 1 %x\n",(int)calibration->Nadir_sensor_mnt_ang[0]);
+	printf("Nadir sensor mount angle 2 %x\n",(int)calibration->Nadir_sensor_mnt_ang[1]);
+	printf("Nadir sensor mount angle 3 %x\n",(int)calibration->Nadir_sensor_mnt_ang[2]);
+
+	printf("sun sensor mount angle 1 %x\n",(int)calibration->sun_sensor_mnt_ang[0]);
+	printf("sun sensor mount angle 2 %x\n",(int)calibration->sun_sensor_mnt_ang[1]);
+	printf("sun sensor mount angle 3 %x\n",(int)calibration->sun_sensor_mnt_ang[2]);
+
+	printf("css 1 %x\n",(int)calibration->css[0]);
+	printf("css 2 %x\n",(int)calibration->css[1]);
+	printf("css 3 %x\n",(int)calibration->css[2]);
+	printf("css 4 %x\n",(int)calibration->css[3]);
+	printf("css 5 %x\n",(int)calibration->css[4]);
+	printf("css 6 %x\n",(int)calibration->css[5]);
+
+	printf("Y-Rate sensor mount angle 1 %x\n",(int)calibration->Rate_sensor_mnt_ang[0]);
+	printf("Y-Rate sensor mount angle 2 %x\n",(int)calibration->Rate_sensor_mnt_ang[1]);
+}
+}
 }
