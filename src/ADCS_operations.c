@@ -256,6 +256,7 @@ void eslADCS_telemetry_Time_Power_temp()
 	ADCS_telemetry_data telemetry_data;
 	adcs_pwrtemptlm_t pwrtemp_tlm;
 	eslADCS_getPwrTempTlm(&pwrtemp_tlm);
+	telemetry_data.sid=159;
 	telemetry_data.csense_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
 	telemetry_data.csense_nadirSRAMcurr = pwrtemp_tlm.fields.csense_nadirSRAMcurr;
 	telemetry_data.csense_sunSRAMcurr = pwrtemp_tlm.fields.csense_sunSRAMcurr;

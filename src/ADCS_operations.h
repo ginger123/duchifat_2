@@ -14,6 +14,7 @@ typedef struct ADCS_Payload_Telametry
 
 typedef struct ADCS_telemetry_data
 {
+	char sid;
 	char ratesensor_temp;
 	char magnetometer_temp;
 	unsigned char csense_nadirSRAMcurr;
@@ -30,6 +31,7 @@ typedef struct ADCS_telemetry_data
 
 typedef struct adcs_calibration
 {
+
    char mtq[3];
    short mtq_max_mnt[3];
    short wheel_mnt_ang[2];
