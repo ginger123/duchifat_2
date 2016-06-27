@@ -109,6 +109,22 @@ void eslADCS_getSensorRates(adcs_angrate_t* sen_rates)
 	sen_rates->fields.z_angrate += data[5];
 }
 
+void eslADCS_getEstimatedAttAngles(adcs_attangles_t *att_angles)
+{
+	unsigned char data[6];
+	unsigned char comm = 145;
+	I2C_write(0x12,&comm,1);
+	vTaskDelay(50 / portTICK_RATE_MS);
+	I2C_read(0x12,data,6);
+	att_angles->fields.roll = data[0] << 8;
+	att_angles->fields.roll += data[1];
+	att_angles->fields.pitch = data[2] << 8;
+	att_angles->fields.pitch += data[3];
+	att_angles->fields.yaw = data[4] << 8;
+	att_angles->fields.yaw += data[5];
+
+}
+
 void eslADCS_getMagneticFieldVec(adcs_magfieldvec_t* mag_field)
 {
 	unsigned char data[6];
@@ -235,22 +251,26 @@ void eslADCS_getPwrTempTlm(adcs_pwrtemptlm_t* pwrtemp_tlm)
 
 }
 
-void eslADCS_telemetry_Time_Power_temp(ADCS_telemetry_data *telemetry_data)
+void eslADCS_telemetry_Time_Power_temp()
 {
+	ADCS_telemetry_data telemetry_data;
 	adcs_pwrtemptlm_t pwrtemp_tlm;
-
 	eslADCS_getPwrTempTlm(&pwrtemp_tlm);
-	telemetry_data->csense_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
-	telemetry_data->csense_nadirSRAMcurr = pwrtemp_tlm.fields.csense_nadirSRAMcurr;
-	telemetry_data->csense_sunSRAMcurr = pwrtemp_tlm.fields.csense_sunSRAMcurr;
-	telemetry_data->arm_cpuTemp = pwrtemp_tlm.fields.arm_cpuTemp;
-	telemetry_data->ccontrol_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
-	telemetry_data->ccontrol_5Vcurr = pwrtemp_tlm.fields.ccontrol_5Vcurr;
-	telemetry_data->ccontrol_Vbatcurr = pwrtemp_tlm.fields.ccontrol_Vbatcurr;
-	telemetry_data->magtorquer_curr = pwrtemp_tlm.fields.magtorquer_curr;
-	telemetry_data->momentum_wheelcurr = pwrtemp_tlm.fields.momentum_wheelcurr;
-	telemetry_data->ratesensor_temp = pwrtemp_tlm.fields.ratesensor_temp;
-	telemetry_data->magnetometer_temp = pwrtemp_tlm.fields.magnetometer_temp;
+	telemetry_data.csense_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
+	telemetry_data.csense_nadirSRAMcurr = pwrtemp_tlm.fields.csense_nadirSRAMcurr;
+	telemetry_data.csense_sunSRAMcurr = pwrtemp_tlm.fields.csense_sunSRAMcurr;
+	telemetry_data.arm_cpuTemp = pwrtemp_tlm.fields.arm_cpuTemp;
+	telemetry_data.ccontrol_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
+	telemetry_data.ccontrol_5Vcurr = pwrtemp_tlm.fields.ccontrol_5Vcurr;
+	telemetry_data.ccontrol_Vbatcurr = pwrtemp_tlm.fields.ccontrol_Vbatcurr;
+	telemetry_data.magtorquer_curr = pwrtemp_tlm.fields.magtorquer_curr;
+	telemetry_data.momentum_wheelcurr = pwrtemp_tlm.fields.momentum_wheelcurr;
+	telemetry_data.ratesensor_temp = pwrtemp_tlm.fields.ratesensor_temp;
+	telemetry_data.magnetometer_temp = pwrtemp_tlm.fields.magnetometer_temp;
+	printf("printing adcs telemetry\n");
+	print_array((unsigned char*)&telemetry_data,sizeof(ADCS_telemetry_data));
+
+	WritewithEpochtime("adcs_tlm_file",0,(char *) &telemetry_data, sizeof(ADCS_telemetry_data));
 }
 
 void eslADCS_Magnetometer_Boom_Deployment_Enabled(Boolean* Magnetometer_Status)

@@ -6,7 +6,7 @@
  */
 
 
-#include "main.h"
+#include "ADCS_operations.h"
 
 
 #ifndef NULL
@@ -38,7 +38,7 @@ void adc_stages(int stage)
 
 			ADC_Stage_3();
 			break;
-		/*case 4:
+		case 4:
 			printf("%d\n", 4);
 			adcs_stage = 4;
 			ADC_Stage_4();
@@ -58,7 +58,7 @@ void adc_stages(int stage)
 			adcs_stage = 7;
 			ADC_Stage_7();
 			break;
-*/
+
 		default:
 		break;
 	}
@@ -81,12 +81,11 @@ void ADC_Stage_1()
 	adcs_angrate_t Sen_rates;
 	adcs_magfieldvec_t Mag_field;
 	ADCS_comissioning_data commisioning_data;
-//	eslADCS_setStateADCS(0, state_enabled); //run the ADCS
-	eslADCS_setStateADCS(state_enabled);
-//	eslADCS_setEstimationMode(0, est_magnetometer_rate); //set the estimation mode
-	eslADCS_setEstimationMode(est_magnetometer_rate);
-//	eslADCS_setPwrCtrlDevice(0, Device_ctrl); //power on the motor
-	eslADCS_setPwrCtrlDevice(Device_ctrl);
+	printf("before adcs set state \n");
+	eslADCS_setStateADCS(state_enabled); //run the ADCS
+	printf("after adcs set state \n");
+	eslADCS_setEstimationMode(est_magnetometer_rate); //set the estimation mode
+	eslADCS_setPwrCtrlDevice(Device_ctrl); //power on the motor
 	while (adcs_stage == 1)
 	{
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
@@ -106,7 +105,8 @@ void ADC_Stage_1()
 		//FileWrite("adcs_file",0,(char *) &commisioning_data, 0, sizeof(ADCS_comissioning_data),0);
 
 
-		//WritewithEpochtime("adcs_file",0, (char *) &commisioning_data, sizeof(ADCS_comissioning_data));
+		WritewithEpochtime("adcs_file",0, (char *) &commisioning_data, sizeof(ADCS_comissioning_data));
+		printf("wrote to adc_file\n");
 
 
 		/*printf(" And Rates x: %x\n",Ang_rates.fields.x_angrate);
@@ -229,6 +229,7 @@ void ADC_Stage_3()
 			eslADCS_Magnetometer_Boom_Deployment_Enabled(&Magnetometer_Status);
 		}
 	}
+
 	 /*
 	  * set magnetometer configuration is not done!!!!!
 	  * adcsconf_magmeter_t conf_magmeter;
@@ -255,7 +256,7 @@ void ADC_Stage_3()
 		WritewithEpochtime("adcs_file",0, (char *) &commisioning_data, sizeof(ADCS_comissioning_data));
 	}
 }
-/*
+
 void ADC_Stage_4()
 {
 	adcs_powerdev_t Device_ctrl;
@@ -275,13 +276,13 @@ void ADC_Stage_4()
 	eslADCS_setAttitudeCtrlMode(modesetting);
 	eslADCS_setPwrCtrlDevice(Device_ctrl);
 	vTaskDelay(5400000 / portTICK_RATE_MS); //dealy of 1 orbit
-*/
+
 	 /*
 		  * set magnetometer configuration is not done!!!!!
 		  * adcsconf_magmeter_t conf_magmeter;
 		  * eslADCS_setConfMagMeter
 	*/
-/*
+
 	eslADCS_setConfSave();
 
 	while (adcs_stage == 4)
@@ -299,7 +300,7 @@ void ADC_Stage_4()
 		commisioning_data.RAW_Magnetometer[1] = raw_mag.fields.magnetic_y;
 		commisioning_data.RAW_Magnetometer[2] = raw_mag.fields.magnetic_z;
 		vTaskDelay(10000 / portTICK_RATE_MS); //delay of 10s
-		WritewithEpochtime("adcs_file",(char *) &commisioning_data, 0, sizeof(ADCS_comissioning_data));
+		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));
 	}
 }
 
@@ -359,7 +360,7 @@ void ADC_Stage_5()
 		commisioning_data.sattelite_velocity[1] = sat_vel.fields.y_velocity;
 		commisioning_data.sattelite_velocity[2] = sat_vel.fields.z_velocity;
 		vTaskDelay(10000 / portTICK_RATE_MS); //dealy of 10s
-		WritewithEpochtime("adcs_file",(char *) &commisioning_data, 0, sizeof(ADCS_comissioning_data));
+		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));
 	}
 }
 
@@ -430,7 +431,7 @@ void ADC_Stage_6()
 			commisioning_data.magnetic_field_vactor[2] = mag_field.fields.z_magfield;
 		}
 
-		WritewithEpochtime("adcs_file",(char *) &commisioning_data, 0, sizeof(ADCS_comissioning_data));
+		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));
 	}
 }
 
@@ -487,7 +488,7 @@ void ADC_Stage_7()
 		commisioning_data.RAW_sun_sensors[2] = raw_sun.fields.sun_busystatus;
 		commisioning_data.RAW_sun_sensors[3] = raw_sun.fields.sun_result;
 		vTaskDelay(10000 / portTICK_RATE_MS); //Delay of 10s
-		WritewithEpochtime("adcs_file",(char *) &commisioning_data, 0, sizeof(ADCS_comissioning_data));
+		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));
 	}
 }
 
@@ -541,9 +542,9 @@ void ADC_Stage_8()
 		commisioning_data.RAW_sun_sensors[2] = raw_sun.fields.sun_busystatus;
 		commisioning_data.RAW_sun_sensors[3] = raw_sun.fields.sun_result;
 		vTaskDelay(10000 / portTICK_RATE_MS);
-		WritewithEpochtime("adcs_file",(char *) &commisioning_data, 0, sizeof(ADCS_comissioning_data));
+		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));;
 	}
-}*/
+}
 
 
 
