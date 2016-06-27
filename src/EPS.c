@@ -122,7 +122,6 @@ void Safe(gom_eps_channelstates_t* channels_state)
 void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm)
 {
 	HK_Struct Packet;
-	unsigned int i;
 	char sd_file_name[] = {"HK_packets"};
 	Packet.sid=0x05;
 	//EPS PARAM START

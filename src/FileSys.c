@@ -192,16 +192,24 @@ int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,uns
 	F_FILE *file2;
 	*start_idx = 0;
 	unsigned long curr_time=0;
+	unsigned long satt_time;
 	int num=0;
 	file2 = f_open( Filename, "r" ); // open file for reading, which is always safe
 	ASSERT( ( file2 ), "f_open pb: %d\n\r", f_getlasterror() ); // if file pointer is NULL, get the error
-
+	Time_getUnixEpoch(&satt_time);
+	if(time_b>satt_time) time_b= satt_time-10;
+	if(time_a>satt_time-10) return 0;//something went terribly wrong
 	while( curr_time < time_b) // do this for every char in the line
 	{
 		f_read( temp, 1, linesize , file2 );
+		if(temp[0] == 256 + EOF)
+		{
+			printf("final time is greater then last packet time!\n");
+			return num;//edited this so function returns if end of file is reached #BigFuckingIf
+		}
 		curr_time = convert_epoctime(temp);
 		printf("curr time is %lu last time is %lu\n",curr_time,time_b);
-		if(curr_time> time_a)
+		if( (curr_time > time_a) && (curr_time< time_b))
 		{
 			num++;
 		}
@@ -209,7 +217,6 @@ int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,uns
 		{
 			(*start_idx)++;
 		}
-		vTaskDelay(2000);
 	}
 	f_close(file2);
 	return num;

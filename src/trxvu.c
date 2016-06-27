@@ -8,7 +8,10 @@
 #include "main.h"
 #include "EPS.h"
 unsigned char tc_count;
-unsigned char dumpparam[2];
+unsigned char dumpparam[11];
+unsigned int dump_completed = 0;
+unsigned int dump_created = 0;
+xTaskHandle taskDumpHandle;
 
 void update_wod(gom_eps_hk_t EpsTelemetry_hk)
 {
@@ -175,15 +178,16 @@ void act_upon_comm(unsigned char* in)
 			if(decode.srvc_subtype==125)//dump
 			{
 				//tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
-				xTaskHandle taskDumpHandle;
+
 				//dump(decode.data[0],decode.data[1]);
 				int i = 0;
 				for(;i<11;i++)
 				{
 					dumpparam[i] = decode.data[i];
 				}
+				printf("Packet from inside dump \n");
+				print_array(dumpparam, 11);
 				xTaskGenericCreate(dump, (const signed char*)"taskDump", 1024, (void *)&dumpparam[0], configMAX_PRIORITIES-2, &taskDumpHandle, NULL, NULL);
-				vTaskDelay(5000 / portTICK_RATE_MS);
 
 			}
 		break;
@@ -210,6 +214,7 @@ void act_upon_comm(unsigned char* in)
 		case (130):
 			if(decode.srvc_subtype==131)//upload subpacket
 			{
+				printf("save segment %d",decode.data[0]);
 				FRAM_write(decode.data+1,SCRIPT_RAW_ADDR+BLOCK_SIZE*decode.data[0],BLOCK_SIZE);
 			}
 			if(decode.srvc_subtype==132)//upload last frame
@@ -288,16 +293,27 @@ void dump(void *arg)
 	int ret;
 	ret = f_enterFS(); /* Register this task with filesystem */
 	ASSERT( (ret == F_NO_ERROR ), "f_enterFS pb: %d\n\r", ret);
-
+	dump_created = 1;
 	if(!Get_Mute())
 	{
-		unsigned char type;unsigned long start_time; unsigned long final_time;
+		unsigned char type = 0;unsigned long start_time = 0; unsigned long final_time = 0;
 		unsigned char* argument = (unsigned char*)arg;
 		printf("entered dump\n");
-		start_time = convert_epoctime((char *)argument);
-		final_time=convert_epoctime((char *)(&argument[5]));
-		type=argument[10];
+		start_time = convert_epoctime((char *)&argument[1]);
+		final_time=convert_epoctime((char *)(&argument[6]));
+		type=argument[0];
+		printf("type is %d, start time is %lu end time is %lu\n",type,start_time,final_time);
+		if(start_time>final_time)
+		{
+			dump_completed = 1;
+			printf("SumTing Iz FckeD Up\n");
+			while(1)
+			{
+				vTaskDelay(99999);
+			}
+		}
 		char HK_packets[] = {"HK_packets"};
+		char ADC_comm[] = {"HK_packets"};
 		char *file;
 		unsigned char *temp_data;
 		int size=0;
@@ -306,6 +322,8 @@ void dump(void *arg)
 		int num_packets = 0;
 		unsigned long t_l;
 		ccsds_packet pct;
+
+
 
 		pct.srvc_type=3;
 		pct.srvc_subtype=25;
@@ -317,7 +335,9 @@ void dump(void *arg)
 				size=HK_SIZE;
 				printf("dump HK\n");
 				break;
-			case 2:
+			case 2://dumping adcs commisionning
+				file= ADC_comm;
+				size= ADC_COMM_SIZE;
 				break;
 			case 3:
 				break;
@@ -331,6 +351,8 @@ void dump(void *arg)
 		temp_data = (unsigned char*)calloc(size+5,sizeof(char));
 
 		num_packets = find_number_of_packets(file,size+5,start_time,final_time,&start_idx);
+
+		printf("sending %d packets",num_packets);
 
 		for(;i<num_packets;i++)//sending packets
 		{
@@ -348,10 +370,17 @@ void dump(void *arg)
 
 			printf("sent packet %d\n",i);
 
-			vTaskDelay(500 / portTICK_RATE_MS);
 		}
-		free(pct.data);
+
+		free(temp_data);
+
 	}
+	dump_completed = 1;
+	while (1)
+	{
+		vTaskDelay(500 / portTICK_RATE_MS);
+	}
+
 }
 
 
@@ -441,6 +470,15 @@ void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix)
 			end_gs_mode();
 		}
 	}
+
+	// check if need to delete dump command
+	if ((dump_created==1) && (dump_completed==1))
+	{
+		dump_created = 0;
+		dump_completed = 0;
+		vTaskDelete( taskDumpHandle );
+	}
+
 }
 
 void Beacon(gom_eps_hk_t EpsTelemetry_hk)

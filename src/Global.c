@@ -1,4 +1,5 @@
 #include "Global.h"
+#include "main.h"
 
 global_param glb;
 unsigned char states;
@@ -101,4 +102,14 @@ void convert_time_array(unsigned long t_l, unsigned char time[5])
 	time[2]=t_l>>8;
 	time[3]=t_l;
 	time[4]=0;
+}
+
+void print_array(unsigned char *arr,int length)
+{
+	int i;
+	for (i=0;i<length;i++)
+	{
+		printf("%x ",arr[i]);
+	}
+	printf("l\n");
 }

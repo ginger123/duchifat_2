@@ -20,11 +20,13 @@
 #define TX_UPBOUND				30
 #define TIMEOUT_UPBOUND			10
 
-#define SIZE_RXFRAME	16
+#define SIZE_RXFRAME	64
 #define SIZE_TXFRAME	235
 
 #define SCRIPT_RAW_ADDR 0x10000
 #define BLOCK_SIZE 16
+
+#define ADC_COMM_SIZE 42//TBD
 
 #define BACON_TIME 3000
 #define TC_COUNT_ADDR 0x100A
