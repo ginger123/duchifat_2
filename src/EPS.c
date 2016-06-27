@@ -66,6 +66,7 @@ void EPS_Power_Conditioning(gom_eps_hk_t* EPS_Cur_TLM, unsigned short* Vbatt_Pre
 void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state, unsigned short* vbatt_previous)
 {
 	unsigned char EPS_addr = EPS_address;
+	eps_config_t eps_config;
 	GomEpsInitialize(&EPS_addr, 1);
 	GomEpsGetHkData_general(EPS_address, EPS_Cur_TLM);
 	unsigned char voltages[EPS_VOLTAGE_SIZE];
@@ -92,6 +93,11 @@ void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state
 		GomEpsSetOutput(EPS_address, *channels_state); // everything is on
 	}
 	*vbatt_previous = EPS_Cur_TLM->fields.vbatt;
+	GomEpsConfigGet(0, &eps_config);
+	eps_config.fields.battheater_low = HEATER_ON;
+	eps_config.fields.battheater_high = HEATER_OFF;
+	eps_config.fields.battheater_mode = 1;
+	GomEpsConfigSet(0,&eps_config);
 }
 
 void Cruse(gom_eps_channelstates_t* channels_state)
