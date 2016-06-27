@@ -313,7 +313,8 @@ void dump(void *arg)
 			}
 		}
 		char HK_packets[] = {"HK_packets"};
-		char ADC_comm[] = {"HK_packets"};
+		char ADC_comm[] = {"adcs_file"};
+		char ADC_tlm[] = {"adcs_tlm_file"};
 		char *file;
 		unsigned char *temp_data;
 		int size=0;
@@ -338,8 +339,12 @@ void dump(void *arg)
 			case 2://dumping adcs commisionning
 				file= ADC_comm;
 				size= ADC_COMM_SIZE;
+				printf("dump adc commisioning\n");
 				break;
 			case 3:
+				file=ADC_tlm;
+				size = sizeof(ADCS_telemetry_data);
+				printf("dump adc_tlm\n");
 				break;
 			default:
 				return;

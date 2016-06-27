@@ -113,3 +113,9 @@ void print_array(unsigned char *arr,int length)
 	}
 	printf("l\n");
 }
+
+
+short switch_endian(short in)
+{
+	return ((in & 0xff00) >> 8) | (( in &  0x00ff) <<8);
+}

@@ -8,15 +8,13 @@
 #ifndef ADCS_THREAD_H_
 #define ADCS_THREAD_H_
 
-#include "main.h"
+
 
 typedef struct ADCS_comissioning_data
 {
-	int current_state;
 	short estimated_anglar_rates[3];
 	short magnetic_field_vactor[3];
 	short sensor_rates[3];
-	char RAW_CSS[6];
 	short RAW_Magnetometer[3];
 	short Magnetorquer_commands[3];
 	short estimated_attitude_angles[3];
@@ -24,9 +22,9 @@ typedef struct ADCS_comissioning_data
 	short sattelite_velocity[3];
 	short RAW_nadir_sensors[4];
 	short RAW_sun_sensors[4];
-	short nadir_centroid[2];
 	short wheel_speed_estimation[3];
 	short wheel_speed_command[3];
+	char RAW_CSS[6];
 }ADCS_comissioning_data;
 
 
