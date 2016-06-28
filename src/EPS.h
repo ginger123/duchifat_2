@@ -9,9 +9,9 @@
 #define EPS_address 0x02
 #endif
 
-#define HK_SIZE 64 // should be 63 but char doesn't go alone
+#define HK_SIZE 62
 #define EPS_VOLTAGE_ADDR 0x1000
-#define EPS_SID 0x05
+#define EPS_SID 166
 #define EPS_VOLTAGE_SIZE 6
 #define HEATER_ON -20
 #define HEATER_OFF -10

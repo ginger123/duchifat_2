@@ -268,8 +268,8 @@ void eslADCS_telemetry_Time_Power_temp()
 	telemetry_data.momentum_wheelcurr = pwrtemp_tlm.fields.momentum_wheelcurr;
 	telemetry_data.ratesensor_temp = pwrtemp_tlm.fields.ratesensor_temp;
 	telemetry_data.magnetometer_temp = pwrtemp_tlm.fields.magnetometer_temp;
-	printf("printing adcs telemetry\n");
-	print_array((unsigned char*)&telemetry_data,sizeof(ADCS_telemetry_data));
+	//printf("printing adcs telemetry\n");
+	//print_array((unsigned char*)&telemetry_data,sizeof(ADCS_telemetry_data));
 
 	WritewithEpochtime("adcs_tlm_file",0,(char *) &telemetry_data, sizeof(ADCS_telemetry_data));
 }
