@@ -78,6 +78,21 @@ void deploy_ants()
 	IsisAntS_attemptDeployment(0,isisants_sideA,isisants_antenna2, isisants_normalDeployment,10);
 	IsisAntS_attemptDeployment(0,isisants_sideB,isisants_antenna3, isisants_normalDeployment,10);
 	IsisAntS_attemptDeployment(0,isisants_sideB,isisants_antenna4, isisants_normalDeployment,10);
+	
+	//this stuff is the sattelite subsystem's way of deploying
+	//ISISantsSide side =  isisants_sideA;
+	/*unsigned char antennaSystemsIndex = 0;
+
+		IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
+
+		vTaskDelay(5 / portTICK_RATE_MS);
+
+		IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
+
+		vTaskDelay(5 / portTICK_RATE_MS);
+
+		IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);*/
+
 }
 
 
