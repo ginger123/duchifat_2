@@ -115,7 +115,14 @@ void print_array(unsigned char *arr,int length)
 }
 
 
-short switch_endian(short in)
+void switch_endian(unsigned char *in, int len)
 {
-	return ((in & 0xff00) >> 8) | (( in &  0x00ff) <<8);
+	int temp;
+	int i = 0;
+	for(;i<len/2;i++)
+	{
+		temp = in[i];
+		in[i] = in[len - 1 - i];
+		in[len - 1 - i] = temp;
+	}
 }

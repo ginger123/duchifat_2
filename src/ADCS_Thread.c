@@ -88,6 +88,7 @@ void ADC_Stage_1()
 	eslADCS_setPwrCtrlDevice(Device_ctrl); //power on the motor
 	while (adcs_stage == 1)
 	{
+		commisioning_data.sid = ADC_SID;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; // getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -162,6 +163,7 @@ void ADC_Stage_2()
 
 	while(adcs_stage == 2)
 	{
+		commisioning_data.sid = ADC_SID;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -240,6 +242,7 @@ void ADC_Stage_3()
 
 	while (adcs_stage == 3)
 	{
+		commisioning_data.sid = ADC_SID;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -287,6 +290,7 @@ void ADC_Stage_4()
 
 	while (adcs_stage == 4)
 	{
+		commisioning_data.sid = ADC_SID;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -335,6 +339,7 @@ void ADC_Stage_5()
 	eslADCS_setPwrCtrlDevice(Device_ctrl);
 	while (adcs_stage == 5)
 	{
+		commisioning_data.sid = ADC_SID;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -401,6 +406,7 @@ void ADC_Stage_6()
 	modesetting.fields.mode = ctrl_mode_detumbling;
 	while (adcs_stage == 6)
 	{
+		commisioning_data.sid = ADC_SID;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -458,6 +464,7 @@ void ADC_Stage_7()
 	eslADCS_setPwrCtrlDevice(Device_ctrl);
 	while (adcs_stage == 7)
 	{
+		commisioning_data.sid = ADC_SID;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -512,6 +519,7 @@ void ADC_Stage_8()
 	eslADCS_setPwrCtrlDevice(Device_ctrl);
 	while (adcs_stage == 8)
 	{
+		commisioning_data.sid = ADC_SID;
 		eslADCS_getEstimatedAngRates(&Ang_rates);
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;

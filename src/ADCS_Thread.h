@@ -12,6 +12,7 @@
 
 typedef struct ADCS_comissioning_data
 {
+	char sid;
 	short estimated_anglar_rates[3];
 	short magnetic_field_vactor[3];
 	short sensor_rates[3];

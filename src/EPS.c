@@ -24,7 +24,7 @@ void EPS_Power_Conditioning(gom_eps_hk_t* EPS_Cur_TLM, unsigned short* Vbatt_Pre
 			//GomEpsSetOutput(EPS_address, channels_state); // Shuts down the payload
 		}
 	}
-	else
+	else if(EPS_Cur_TLM->fields.vbatt > *Vbatt_Previous)
 	{
 		if(EPS_Cur_TLM->fields.vbatt > (int)voltages[3]*100 && channels_state->fields.channel5V_3 == 0)
 		{
@@ -129,7 +129,7 @@ void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxv
 {
 	HK_Struct Packet;
 	char sd_file_name[] = {"HK_packets"};
-	Packet.sid=0x05;
+	Packet.sid= EPS_SID;
 	//EPS PARAM START
 	Packet.HK_vbatt = tlm.fields.vbatt;
 	Packet.HK_vboost[0] = tlm.fields.vboost[0];

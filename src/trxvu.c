@@ -370,6 +370,8 @@ void dump(void *arg)
 
 			pct.data = temp_data+5;
 
+			switch_endian(pct.data + 1, size - 1);
+
 			//delete_packets_from_file(file, todel,size);
 			send_SCS_pct(pct);
 
