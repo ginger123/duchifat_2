@@ -178,15 +178,16 @@ void act_upon_comm(unsigned char* in)
 			if(decode.srvc_subtype==125)//dump
 			{
 				tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
-
-				//dump(decode.data[0],decode.data[1]);
+				if(dump_created == 1)
+				{
+					break;
+				}
 				int i = 0;
 				for(;i<11;i++)
 				{
 					dumpparam[i] = decode.data[i];
 				}
 				xTaskGenericCreate(dump, (const signed char*)"taskDump", 1024, (void *)&dumpparam[0], configMAX_PRIORITIES-2, &taskDumpHandle, NULL, NULL);
-
 			}
 		break;
 		case (8):
@@ -293,7 +294,7 @@ void dump(void *arg)
 	ret = f_enterFS(); /* Register this task with filesystem */
 	ASSERT( (ret == F_NO_ERROR ), "f_enterFS pb: %d\n\r", ret);
 
-	//dump_created = 1;
+	dump_created = 1;
 
 	if(!Get_Mute())
 	{
@@ -373,7 +374,7 @@ void dump(void *arg)
 
 			pct.data = temp_data+5;
 
-			//switch_endian(pct.data + end_offest, size - end_offest);
+			switch_endian(pct.data + end_offest, size - end_offest);
 
 			//delete_packets_from_file(file, todel,size);
 			send_SCS_pct(pct);
@@ -385,10 +386,10 @@ void dump(void *arg)
 
 	}
 	dump_completed = 1;
-	//while (1)
-	//{
+	while (1)
+	{
 		vTaskDelay(500 / portTICK_RATE_MS);
-	//}
+	}
 
 }
 
@@ -420,20 +421,16 @@ void end_gs_mode()
 	//GomEpsSetOutput(0, glb_channels_state);
 }
 
-Boolean check_ants_deployed()// NOT WORKING CAUSE ISIS CODE
+Boolean check_ants_deployed()
 {
-	/*ISISantsSide side = isisants_sideA;
+	ISISantsSide side = isisants_sideA;
 	ISISantsStatus ants_stat;
-	side = isisants_sideA;
 	IsisAntS_getStatusData(0,side,&ants_stat);
-	side = isisants_sideB;
-	IsisAntS_getStatusData(0,side,&ants_stat);
-	printf("%d,%d,%d,%d\n",ants_stat.fields.ant1Undeployed,ants_stat.fields.ant2Undeployed,ants_stat.fields.ant3Undeployed,ants_stat.fields.ant4Undeployed);
-	if(ants_stat.fields.ant1Undeployed || ants_stat.fields.ant2Undeployed || ants_stat.fields.ant3Undeployed || ants_stat.fields.ant4Undeployed)
+	if(!ants_stat.fields.ant2Undeployed || !ants_stat.fields.ant4Undeployed)
 	{
 		printf("deployed\n");
 		return TRUE;
-	}*/
+	}
 	printf("not deployed\n");
 	return FALSE;
 
