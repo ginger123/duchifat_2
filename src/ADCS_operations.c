@@ -1,6 +1,7 @@
 #include "main.h"
 #include "ADCS_operations.h"
 #include "ADCS_Thread.h"
+#include <hal/Timing/Time.h>
 
 #ifndef NULL
 #define NULL ( (void *) 0)
@@ -335,6 +336,7 @@ void ADCS_payload_Telemetry(ADCS_Payload_Telemetry *Payload_Telemtry)
 {
 	adcs_angrate_t ang_rates;
 	adcs_attangles_t att_angles;
+	adcs_currstate_t current_state;
 
 	eslADCS_getEstimatedAttAngles(&att_angles);
 	Payload_Telemtry->estimated_attitude_angles[0] = att_angles.fields.roll;
@@ -344,6 +346,10 @@ void ADCS_payload_Telemetry(ADCS_Payload_Telemetry *Payload_Telemtry)
 	Payload_Telemtry->estimated_anglar_rates[0] = ang_rates.fields.x_angrate;
 	Payload_Telemtry->estimated_anglar_rates[1] = ang_rates.fields.y_angrate;
 	Payload_Telemtry->estimated_anglar_rates[2] = ang_rates.fields.z_angrate;
+	eslADCS_getCurrentPosition(&current_state);
+	Payload_Telemtry->current_Position[0]= current_state.fields.position_x;
+	Payload_Telemtry->current_Position[1]= current_state.fields.position_y;
+	Payload_Telemtry->current_Position[2]= current_state.fields.position_z;
 }
 
 
@@ -437,7 +443,6 @@ void print_calibration(adcs_calibration *calibration)
 	printf("Nadir sensor mount angle 2 %x\n",(int)calibration->Nadir_sensor_mnt_ang[1]);
 	printf("Nadir sensor mount angle 3 %x\n",(int)calibration->Nadir_sensor_mnt_ang[2]);
 
-	printf("sun sensor mount angle 1 %x\n",(int)calibration->sun_sensor_mnt_ang[0]);
 	printf("sun sensor mount angle 2 %x\n",(int)calibration->sun_sensor_mnt_ang[1]);
 	printf("sun sensor mount angle 3 %x\n",(int)calibration->sun_sensor_mnt_ang[2]);
 
@@ -452,4 +457,44 @@ void print_calibration(adcs_calibration *calibration)
 	printf("Y-Rate sensor mount angle 2 %x\n",(int)calibration->Rate_sensor_mnt_ang[1]);
 }
 
+void eslADCS_setOrbitParam(unsigned char* orbit_param)
+{
+	unsigned char arr[64];
+	ADCS_command(64, arr, 64);
+}
 
+void eslADCS_getCurrentPosition(adcs_currstate_t* current_state)
+{
+	unsigned char data[48];
+	unsigned char comm= 136;
+	I2C_write(0x12,&comm,1);
+
+	vTaskDelay(50 / portTICK_RATE_MS);
+
+	I2C_read(0x12,data,48);
+
+	current_state->fields.position_x = data[40]<<8;
+	current_state->fields.position_x += data[41];
+	current_state->fields.position_y = data[42]<<8;
+	current_state->fields.position_y += data[43];
+	current_state->fields.position_z = data[44]<<8;
+	current_state->fields.position_z += data[45];
+}
+
+
+void Build_PayloadPacket(unsigned char *packet)
+{
+	char sd_file_name[] = {"Petcho"};
+	int i;
+	mnlp_packet mnlp_pck;
+	for (i=0;i<174;i++)
+	{
+		mnlp_pck.mnlp_data[i] = packet[i];
+	}
+	ADCS_payload_Telemetry(&mnlp_pck.adc_header);
+
+
+	WritewithEpochtime(sd_file_name, 0, (char *)&mnlp_pck.adc_header, sizeof(mnlp_pck.adc_header));
+	FileWrite(sd_file_name, 0, (char *)&mnlp_pck.mnlp_data, sizeof(mnlp_pck.mnlp_data));
+
+}

@@ -10,6 +10,7 @@ typedef struct ADCS_Payload_Telametry
 {
 	short estimated_anglar_rates[3];
 	short estimated_attitude_angles[3];
+	short current_Position[3];
 }ADCS_Payload_Telemetry;
 
 typedef struct ADCS_telemetry_data
@@ -43,6 +44,20 @@ typedef struct adcs_calibration
 }adcs_calibration;
 
 
+typedef struct mnlp_packet
+{
+	unsigned long UTC_epoch_tine;
+	ADCS_Payload_Telemetry adc_header;
+	unsigned char mnlp_data[174];
+
+} mnlp_packet;
+
+
+
+
+
+
+
 void eslADCS_getEstimatedAngRates(adcs_angrate_t* ang_rates);
 void eslADCS_getSensorRates(adcs_angrate_t* sen_rates);
 void eslADCS_setAttitudeCtrlMode(adcs_ctrlmodeset_t modesettings);
@@ -66,5 +81,9 @@ void eslADCS_setPwrCtrlDevice(adcs_powerdev_t device_ctrl);
 void eslADCS_getEstimatedAttAngles(adcs_attangles_t *att_angles);
 void eslADCS_getCalibration(adcs_calibration *calibration);
 void print_calibration(adcs_calibration *calibration);
+void eslADCS_setOrbitParam(unsigned char* orbit_param);
+void eslADCS_getCurrentPosition(adcs_currstate_t* current_state);
+void Build_PayloadPacket(unsigned char *packet);
+void eslADCS_getCurrentTime(adcs_unixtime_t* unix_time);
 
 #endif
