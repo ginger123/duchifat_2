@@ -111,7 +111,7 @@ void print_array(unsigned char *arr,int length)
 	{
 		printf("%x ",arr[i]);
 	}
-	printf("l\n");
+	printf("END\n");
 }
 
 

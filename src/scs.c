@@ -181,13 +181,13 @@ void parse_comm(rcvd_packet *pct, unsigned char in[])
 	{
 		printf("checksum of packet failed. aborting command\n");
 		pct->isvalidcrc=FALSE;
-		//tc_verification_report(*pct,TC_ACCEPT_SERVICE_FAILURE,ERR_INCORRECT_CHKSM);
-		//return;
+		tc_verification_report(*pct,TC_ACCEPT_SERVICE_FAILURE,ERR_INCORRECT_CHKSM,in);
+		return;
 
 	}
 		//by this point the packet has been accepted so sending acceptance report:
 	printf("command accepted\n");
-	//tc_verification_report(*pct,TC_ACCEPT_SERVICE_SUCCESS,NO_ERR,in);
+	tc_verification_report(*pct,TC_ACCEPT_SERVICE_SUCCESS,NO_ERR,in);
 }
 
 void tc_verification_report(rcvd_packet decode,unsigned char type,unsigned int clause, unsigned char in[])
@@ -210,7 +210,7 @@ void tc_verification_report(rcvd_packet decode,unsigned char type,unsigned int c
 	else {
 		report.len=4;
 	}
-	send_SCS_pct(report);
+	//send_SCS_pct(report);
 }
 
 

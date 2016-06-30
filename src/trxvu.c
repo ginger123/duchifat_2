@@ -7,6 +7,7 @@
 
 #include "main.h"
 #include "EPS.h"
+#include "mnlp.h"
 unsigned char tc_count;
 unsigned char dumpparam[11];
 unsigned int dump_completed = 0;
@@ -154,7 +155,6 @@ void act_upon_comm(unsigned char* in)
 {
 
 	unsigned int i=0;
-	unsigned int script_len;
 	FRAM_read(&tc_count,TC_COUNT_ADDR,1);
 	in++;
 	rcvd_packet decode;
@@ -178,16 +178,15 @@ void act_upon_comm(unsigned char* in)
 			if(decode.srvc_subtype==125)//dump
 			{
 				tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
-				if(dump_created == 1)
-				{
-					break;
-				}
+
+				//dump(decode.data[0],decode.data[1]);
 				int i = 0;
 				for(;i<11;i++)
 				{
 					dumpparam[i] = decode.data[i];
 				}
 				xTaskGenericCreate(dump, (const signed char*)"taskDump", 1024, (void *)&dumpparam[0], configMAX_PRIORITIES-2, &taskDumpHandle, NULL, NULL);
+
 			}
 		break;
 		case (8):
@@ -214,23 +213,27 @@ void act_upon_comm(unsigned char* in)
 			if(decode.srvc_subtype==131)//upload subpacket
 			{
 				printf("save segment %d",decode.data[0]);
-				FRAM_write(decode.data+1,SCRIPT_RAW_ADDR+BLOCK_SIZE*decode.data[0],BLOCK_SIZE);
+				FRAM_write(decode.data+1,SCRIPT_RAW_ADDR+BLOCK_SIZE*decode.data[0],decode.len-1);
 			}
 			if(decode.srvc_subtype==132)//upload last frame
 			{
-				printf("received full script\n");
-				unsigned char printscript[500];
-				FRAM_write(decode.data,SCRIPT_RAW_ADDR-1,1);//save script number
-				FRAM_write(decode.data+1,SCRIPT_RAW_ADDR-3,2);//save script size
-				script_len=decode.data[1]*256+decode.data[2];
+				// read length and script
+				short len;
+				unsigned char *script_ptr;
+				FRAM_read((unsigned char *)&len, SCRIPT_RAW_ADDR, 2);
+				script_ptr = (unsigned char *)calloc(len,sizeof(char));
+				FRAM_read(script_ptr, SCRIPT_RAW_ADDR, len);
 
-				FRAM_read(printscript,SCRIPT_RAW_ADDR,script_len);
-				for(i=0;i<script_len;i++)
-				{
-					printf("%x ", printscript[i]);
-				}
-				printf("\n");
-				//invoke function here
+				// check CRC
+				if(Fletcher16(script_ptr,len)) printf("bad script");
+
+				printf("received full script\n printing it now\n");
+				print_array(script_ptr,len);				// write to appropriate address
+
+				FRAM_write(script_ptr,scripts_adresses[decode.data[0]],len);//save script numbe
+
+				// free memory
+				free(script_ptr);
 			}
 		break;
 		case (131):
@@ -294,7 +297,7 @@ void dump(void *arg)
 	ret = f_enterFS(); /* Register this task with filesystem */
 	ASSERT( (ret == F_NO_ERROR ), "f_enterFS pb: %d\n\r", ret);
 
-	dump_created = 1;
+	//dump_created = 1;
 
 	if(!Get_Mute())
 	{
@@ -368,13 +371,13 @@ void dump(void *arg)
 			FileReadIndex(file, (char *)temp_data,size+5,start_idx+i);
 
 			// convert time to epoch time
-			t_l = convert_epoctime(temp_data);
+			t_l = convert_epoctime((char *) temp_data);
 			t_l = t_l -30*365*24*3600-24*3600*7;
 			convert_time_array(t_l, pct.c_time);
 
 			pct.data = temp_data+5;
 
-			switch_endian(pct.data + end_offest, size - end_offest);
+			//switch_endian(pct.data + end_offest, size - end_offest);
 
 			//delete_packets_from_file(file, todel,size);
 			send_SCS_pct(pct);
@@ -386,10 +389,10 @@ void dump(void *arg)
 
 	}
 	dump_completed = 1;
-	while (1)
-	{
+	//while (1)
+	//{
 		vTaskDelay(500 / portTICK_RATE_MS);
-	}
+	//}
 
 }
 
@@ -421,16 +424,20 @@ void end_gs_mode()
 	//GomEpsSetOutput(0, glb_channels_state);
 }
 
-Boolean check_ants_deployed()
+Boolean check_ants_deployed()// NOT WORKING CAUSE ISIS CODE
 {
-	ISISantsSide side = isisants_sideA;
+	/*ISISantsSide side = isisants_sideA;
 	ISISantsStatus ants_stat;
+	side = isisants_sideA;
 	IsisAntS_getStatusData(0,side,&ants_stat);
-	if(!ants_stat.fields.ant2Undeployed || !ants_stat.fields.ant4Undeployed)
+	side = isisants_sideB;
+	IsisAntS_getStatusData(0,side,&ants_stat);
+	printf("%d,%d,%d,%d\n",ants_stat.fields.ant1Undeployed,ants_stat.fields.ant2Undeployed,ants_stat.fields.ant3Undeployed,ants_stat.fields.ant4Undeployed);
+	if(ants_stat.fields.ant1Undeployed || ants_stat.fields.ant2Undeployed || ants_stat.fields.ant3Undeployed || ants_stat.fields.ant4Undeployed)
 	{
 		printf("deployed\n");
 		return TRUE;
-	}
+	}*/
 	printf("not deployed\n");
 	return FALSE;
 
@@ -445,7 +452,7 @@ void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix)
 	int i=0;
 	// 5. check command receive
 	IsisTrxvu_rcGetFrameCount(0, &RxCounter);
-	printf("rx_counter is %d\n",RxCounter);
+	//printf("rx_counter is %d\n",RxCounter);
 	// 6. check if begin GS mode
 	if(RxCounter>0)
 	{

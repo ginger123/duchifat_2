@@ -189,6 +189,7 @@ int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,uns
 	// loop over packets in file - for each line: a. convert time to long int, b. check if in range
 
 	char temp[linesize];
+	int temp_ctr=0;
 	F_FILE *file2;
 	*start_idx = 0;
 	unsigned long curr_time=0;
@@ -199,7 +200,7 @@ int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,uns
 	Time_getUnixEpoch(&satt_time);
 	if(time_b>satt_time) time_b= satt_time-10;
 	if(time_a>satt_time-10) return 0;//something went terribly wrong
-	while( curr_time < time_b) // do this for every char in the line
+	while( curr_time < time_b && temp_ctr<10) // do this for every char in the line
 	{
 		f_read( temp, 1, linesize , file2 );
 		if(temp[0] == 256 + EOF)
@@ -217,6 +218,7 @@ int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,uns
 		{
 			(*start_idx)++;
 		}
+		temp_ctr = temp_ctr+1;
 	}
 	f_close(file2);
 	return num;

@@ -10,18 +10,18 @@ void EPS_Power_Conditioning(gom_eps_hk_t* EPS_Cur_TLM, unsigned short* Vbatt_Pre
 		if(EPS_Cur_TLM->fields.vbatt < (int)voltages[0]*100 && channels_state->fields.channel3V3_1 == 1)
 		{
 			Safe(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Shuts down the ADCS actuators as well
+			//GomEpsSetOutput(0, channels_state); // Shuts down the ADCS actuators as well
 		}
 		else if(EPS_Cur_TLM->fields.vbatt < (int)voltages[1]*100 && channels_state->fields.channel5V_1 == 1)
 		{
 			Cruse(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Shuts down the transmitter as well
+			//GomEpsSetOutput(0, channels_state); // Shuts down the transmitter as well
 
 		}
 		else if(EPS_Cur_TLM->fields.vbatt < (int)voltages[2]*100 && channels_state->fields.channel5V_3 == 1)
 		{
 			Cruse(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Shuts down the payload
+			//GomEpsSetOutput(0, channels_state); // Shuts down the payload
 		}
 	}
 	else if(EPS_Cur_TLM->fields.vbatt > *Vbatt_Previous)
@@ -29,17 +29,17 @@ void EPS_Power_Conditioning(gom_eps_hk_t* EPS_Cur_TLM, unsigned short* Vbatt_Pre
 		if(EPS_Cur_TLM->fields.vbatt > (int)voltages[3]*100 && channels_state->fields.channel5V_3 == 0)
 		{
 			Cruse(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Activates the payload as well
+			//GomEpsSetOutput(0, channels_state); // Activates the payload as well
 		}
 		else if(EPS_Cur_TLM->fields.vbatt > (int)voltages[4]*100 && channels_state->fields.channel5V_1 == 0)
 		{
 			Cruse(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Activates the tranciever as well
+			//GomEpsSetOutput(0, channels_state); // Activates the tranciever as well
 		}
 		else if(EPS_Cur_TLM->fields.vbatt > (int)voltages[5]*100 && channels_state->fields.channel3V3_1 == 0)
 		{
 			Cruse(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Activates the ADCS actuators
+			//GomEpsSetOutput(0, channels_state); // Activates the ADCS actuators
 		}
 	}
 	*Vbatt_Previous = EPS_Cur_TLM->fields.vbatt;
@@ -68,29 +68,32 @@ void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state
 	unsigned char EPS_addr = EPS_address;
 	eps_config_t eps_config;
 	GomEpsInitialize(&EPS_addr, 1);
-	GomEpsGetHkData_general(EPS_address, EPS_Cur_TLM);
+	GomEpsGetHkData_general(0, EPS_Cur_TLM);
 	unsigned char voltages[EPS_VOLTAGE_SIZE];
 	FRAM_read(voltages, EPS_VOLTAGE_ADDR,EPS_VOLTAGE_SIZE);
 
 	if(EPS_Cur_TLM->fields.vbatt < voltages[0]*100)
 	{
 		Safe(channels_state);
-		GomEpsSetOutput(EPS_address, *channels_state); // Shuts down the ADCS actuators as well
+		//GomEpsSetOutput(0, *channels_state); // Shuts down the ADCS actuators as well
 	}
 	else if(EPS_Cur_TLM->fields.vbatt < voltages[1]*100)
 	{
+		printf("ADCS ON\n");
 		Cruse(channels_state);
-		GomEpsSetOutput(EPS_address, *channels_state); // Shuts down the transmitter as well
+		//GomEpsSetOutput(0, *channels_state); // Shuts down the transmitter as well
 	}
 	else if(EPS_Cur_TLM->fields.vbatt < voltages[2]*100)
 	{
+		printf("ADCS ON\n");
 		Cruse(channels_state);
-		GomEpsSetOutput(EPS_address, *channels_state); // Shuts down the payload
+		//GomEpsSetOutput(0, *channels_state); // Shuts down the payload
 	}
 	else
 	{
+		printf("ADCS ON\n");
 		Cruse(channels_state);
-		GomEpsSetOutput(EPS_address, *channels_state); // everything is on
+		//GomEpsSetOutput(0, *channels_state); // everything is on
 	}
 	*vbatt_previous = EPS_Cur_TLM->fields.vbatt;
 	GomEpsConfigGet(0, &eps_config);

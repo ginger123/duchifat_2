@@ -3,6 +3,7 @@
  */
 
 #include "main.h"
+#include "test.h"
 
 #define ENABLE_MAIN_TRACES 1
 #if ENABLE_MAIN_TRACES
@@ -80,6 +81,50 @@ void deploy_ants()
 	IsisAntS_attemptDeployment(0,isisants_sideB,isisants_antenna4, isisants_normalDeployment,10);
 }
 
+void Initialize_UART()
+{
+	UARTconfig configBus0 = {.mode = AT91C_US_USMODE_NORMAL | AT91C_US_CLKS_CLOCK | AT91C_US_CHRL_8_BITS | AT91C_US_PAR_NONE | AT91C_US_OVER_16 | AT91C_US_NBSTOP_1_BIT,
+									.baudrate = 9600, .timeGuard = 1, .busType = rs232_uart, .rxtimeout = 0x03C0};
+
+	// Both UART peripherals must be started separately as they can use different configurations.
+    UART_start(bus0_uart, configBus0);
+}
+
+void Initialized_GPIO()
+{
+
+	Pin Pin04 = GPIO_04;
+	Pin Pin05 = GPIO_05;
+	Pin Pin06 = GPIO_06;
+	Pin Pin07 = GPIO_07;
+
+
+	PIO_Configure(&Pin04, PIO_LISTSIZE(&Pin04));
+	if(!PIO_Configure(&Pin04, PIO_LISTSIZE(Pin04))) {
+			printf(" PinTest: Unable to configure PIOA pins as output! \n\r");
+			while(1);
+	}
+	vTaskDelay(10);
+	PIO_Configure(&Pin05, PIO_LISTSIZE(&Pin05));
+	if(!PIO_Configure(&Pin05, PIO_LISTSIZE(Pin05))) {
+			printf(" PinTest: Unable to configure PIOB pins as output! \n\r");
+			while(1);
+	}
+	vTaskDelay(10);
+	PIO_Configure(&Pin06, PIO_LISTSIZE(&Pin06));
+	if(!PIO_Configure(&Pin06, PIO_LISTSIZE(Pin06))) {
+		printf(" PinTest: Unable to configure PIOC pins as output! \n\r");
+		while(1);
+	}
+	vTaskDelay(10);
+	PIO_Configure(&Pin07, PIO_LISTSIZE(&Pin07));
+	if(!PIO_Configure(&Pin07, PIO_LISTSIZE(Pin06))) {
+			printf(" PinTest: Unable to configure PIOC pins as output! \n\r");
+			while(1);
+	}
+	printf("\n\r PinTest: All pins should now be logic-0 (0V). Please check their states now. \n\r");
+}
+
 
 void initialize_subsystems(gom_eps_hk_t* EpsTelemetry_hk, gom_eps_channelstates_t *channels_state, unsigned short* vbatt_previous)
 {
@@ -109,13 +154,16 @@ void initialize_subsystems(gom_eps_hk_t* EpsTelemetry_hk, gom_eps_channelstates_
 	if(!deployed)
 	{
 		unsigned char voltages[6] = {65,72,74,75,73,66};
-		FRAM_write(voltages, EPS_VOLTAGE_ADDR, 6);
+		FRAM_write(voltages, EPS_VOLTAGE_ADDR, EPS_VOLTAGE_SIZE);
 	}
 	EPS_Init(EpsTelemetry_hk, channels_state, vbatt_previous);
 
 	//initialize trxvu
 	init_trxvu();
 	IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_1200);
+
+	// initialize UART
+	Initialize_UART();
 
 	//initialize file system
 	if(!deployed)
@@ -139,16 +187,20 @@ void initialize_subsystems(gom_eps_hk_t* EpsTelemetry_hk, gom_eps_channelstates_
 		Set_Mnlp_State(TRUE);
 	}
 
-
+	Initialized_GPIO();
 	//initialize ADCS
 	//ADCS_reset(&adcs_reset);
 	//SetAttEstMode(2);
 }
 
 
+
 void taskMain()
 {
 		unsigned short vbatt_previous;
+		xTaskHandle taskMNLPcomHandle;
+		xTaskHandle taskADCScomHandle;
+		//xTaskHandle taskMNLPlistener;
 		//ADCS_CUR_STATE ADc;
 		//ADc.flag = 0;
 		gom_eps_channelstates_t channels_state;
@@ -192,6 +244,11 @@ void taskMain()
 		unsigned long pt_beacon = pt;
 		unsigned long pt_hk = pt;
 		printf("love was given\n");
+
+		xTaskGenericCreate(taskmnlp, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPcomHandle, NULL, NULL);
+		//xTaskGenericCreate(_mnlplistener, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPlistener, NULL, NULL);
+		//xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
+
 		while(1)
 		{
 			// 1. get telemetry trxvu
@@ -213,6 +270,7 @@ void taskMain()
 			{
 				pt_hk = time_now_unix;
 				HK_packet_build_save(EpsTelemetry_hk,rx_tlm,tx_tlm,ants_tlm);
+				//eslADCS_telemetry_Time_Power_temp();
 				printf("local time: %lu\n",time_now_unix);
 			}
 			// 3. get telemetry ADCS
@@ -234,7 +292,15 @@ void taskMain()
 			}
 			if(time_now_unix - pt_beacon >= BACON_TIME)
 			{
-				Beacon(EpsTelemetry_hk);
+				//dumpparam[0] = 3;
+				//convert_time_array(time_now_unix-60,&dumpparam[1]);
+				//convert_time_array(time_now_unix+10,&dumpparam[6]);
+				//dump(dumpparam);
+
+				printf("send beacon\n");
+				pt_beacon = time_now_unix;
+
+				//Beacon(EpsTelemetry_hk);
 			}
 
 			vTaskDelay(2000 / portTICK_RATE_MS);
@@ -247,7 +313,8 @@ void taskMain()
 int main() {
 	unsigned int i = 0;
 	xTaskHandle taskMainHandle;
-	xTaskHandle taskADCScomHandle;
+	//
+
 	TRACE_CONFIGURE_ISP(DBGU_STANDARD, 2000000, BOARD_MCK);
 	// Enable the Instruction cache of the ARM9 core. Keep the MMU and Data Cache disabled.
 	CP15_Enable_I_Cache();
@@ -262,6 +329,7 @@ int main() {
 	WDT_start();
 	printf("\t main: Starting main task.. \n\r");
 	xTaskGenericCreate(taskMain, (const signed char*)"taskMain", 1024, NULL, configMAX_PRIORITIES-2, &taskMainHandle, NULL, NULL);
+
 	//xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
 
 	printf("\t main: Starting scheduler.. \n\r");

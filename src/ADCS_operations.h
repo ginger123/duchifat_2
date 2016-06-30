@@ -10,6 +10,7 @@ typedef struct ADCS_Payload_Telametry
 {
 	short estimated_anglar_rates[3];
 	short estimated_attitude_angles[3];
+	short current_Position[3];
 }ADCS_Payload_Telemetry;
 
 typedef struct ADCS_telemetry_data
@@ -19,6 +20,7 @@ typedef struct ADCS_telemetry_data
 	char magnetometer_temp;
 	unsigned char csense_nadirSRAMcurr;
 	unsigned char csense_sunSRAMcurr;
+	unsigned char demo;
 	unsigned short csense_3v3curr;
 	unsigned short arm_cpuTemp;
 	unsigned short ccontrol_3v3curr;
@@ -68,5 +70,10 @@ void eslADCS_setPwrCtrlDevice(adcs_powerdev_t device_ctrl);
 void eslADCS_getEstimatedAttAngles(adcs_attangles_t *att_angles);
 void eslADCS_getCalibration(adcs_calibration *calibration);
 void print_calibration(adcs_calibration *calibration);
+void eslADCS_setOrbitParam(unsigned char* orbit_param);
+void Build_PayloadPacket(unsigned char *packet);
+void eslADCS_getCurrentPosition(adcs_currstate_t* current_state);
+void eslADCS_getRawNadirSensor(adcs_raw_nadir_t *raw_nadir);
+void eslADCS_setWheelSpeed(adcs_wheelspeed_t cmd_speed);
 
 #endif

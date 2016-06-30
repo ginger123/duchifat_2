@@ -81,11 +81,11 @@ void ADC_Stage_1()
 	adcs_angrate_t Sen_rates;
 	adcs_magfieldvec_t Mag_field;
 	ADCS_comissioning_data commisioning_data;
-	printf("before adcs set state \n");
+
 	eslADCS_setStateADCS(state_enabled); //run the ADCS
-	printf("after adcs set state \n");
 	eslADCS_setEstimationMode(est_magnetometer_rate); //set the estimation mode
 	eslADCS_setPwrCtrlDevice(Device_ctrl); //power on the motor
+
 	while (adcs_stage == 1)
 	{
 		commisioning_data.sid = ADC_SID;
@@ -102,44 +102,15 @@ void ADC_Stage_1()
 		commisioning_data.magnetic_field_vactor[1] = Mag_field.fields.y_magfield;//getting the data to the commisioning_data struct
 		commisioning_data.magnetic_field_vactor[2] = Mag_field.fields.z_magfield;
 
-		//save to file
-		//FileWrite("adcs_file",0,(char *) &commisioning_data, 0, sizeof(ADCS_comissioning_data),0);
-
-
 		WritewithEpochtime("adcs_file",0, (char *) &commisioning_data, sizeof(ADCS_comissioning_data));
-		printf("wrote to adc_file\n");
-
-
-		/*printf(" And Rates x: %x\n",Ang_rates.fields.x_angrate);
-		printf(" And Rates y: %x\n",Ang_rates.fields.y_angrate);
-		printf(" And Rates z: %x\n",Ang_rates.fields.y_angrate);*/
-		printf("Fucking Stage 1 \n");
-		//Ang Rates
-		printf(" And Rates x: %d\n",commisioning_data.estimated_anglar_rates[0]);
-		printf(" And Rates y: %d\n",commisioning_data.estimated_anglar_rates[1]);
-		printf(" And Rates z: %d\n",commisioning_data.estimated_anglar_rates[2]);
-		//Ang Rates
-
-		//Sen Rates
-		printf(" Sen Rates x: %d\n",commisioning_data.sensor_rates[0]);
-		printf(" Sen Rates y: %d\n",commisioning_data.sensor_rates[1]);
-		printf(" Sen Rates z: %d\n",commisioning_data.sensor_rates[2]);
-		//Sen Rates
-
-		//Mag Field Vector
-		printf(" Mag Field Vector x: %d\n",commisioning_data.magnetic_field_vactor[0]);
-		printf(" Mag Field Vector y: %d\n",commisioning_data.magnetic_field_vactor[1]);
-		printf(" Mag Field Vector z: %d\n",commisioning_data.magnetic_field_vactor[2]);
-		//Mag Field Vector
-
-		vTaskDelay(5000 / portTICK_RATE_MS); //delay of 10s
-
+		printf("delay for 10 seconds\n");
+		vTaskDelay(10000 / portTICK_RATE_MS);
 	}
 }
 
 void ADC_Stage_2()
 {
-	adcs_stage=2;
+
 	adcs_ctrlmodeset_t modesetting;
 	adcs_powerdev_t Device_ctrl;
 	Device_ctrl.fields.pwr_motor = selection_on; //motor power on(1)
@@ -153,9 +124,12 @@ void ADC_Stage_2()
 	ADCS_comissioning_data commisioning_data;
 	adcs_magnetorq_t mag_cmd;
 	eslADCS_setStateADCS(state_enabled); //run the ADCS
-	printf("finished first command\n");
+
 	eslADCS_setEstimationMode(est_magnetometer_rate); //set the estimation mode
+
+	printf("60 Seconds delay\n");
 	vTaskDelay(60000 / portTICK_RATE_MS); //delay of 1min
+
 	modesetting.fields.mode =  ctrl_mode_detumbling; //enter to detumbling mode
 	modesetting.fields.timeout = 0;
 	eslADCS_setAttitudeCtrlMode(modesetting);
@@ -182,18 +156,7 @@ void ADC_Stage_2()
 		commisioning_data.Magnetorquer_commands[2] = mag_cmd.fields.magZ;
 		//FileWrite("adcs_file",0,(char *) &commisioning_data, 0, sizeof(ADCS_comissioning_data),0);
 		vTaskDelay(10000 / portTICK_RATE_MS); //delay 10s
-		printf("Fucking Stage 2 \n");
-		printf("estimated angular rates %d\n", commisioning_data.estimated_anglar_rates[0]);
-		printf("estimated angular rates %d\n", commisioning_data.estimated_anglar_rates[1]);
-		printf("estimated angular rates %d\n", commisioning_data.estimated_anglar_rates[2]);
-		printf("magnetic field vector %d\n", commisioning_data.magnetic_field_vactor[0]);
-		printf("magnetic field vector %d\n", commisioning_data.magnetic_field_vactor[1]);
-		printf("magnetic field vector %d\n", commisioning_data.magnetic_field_vactor[2]);
-		vTaskDelay(2000 / portTICK_RATE_MS);
-
-
-		//WritewithEpochtime("adcs_file",0, (char *) &commisioning_data, sizeof(ADCS_comissioning_data));
-
+		WritewithEpochtime("adcs_file",0, (char *) &commisioning_data, sizeof(ADCS_comissioning_data));
 
 	}
 }
@@ -213,6 +176,7 @@ void ADC_Stage_3()
 	ADCS_comissioning_data commisioning_data;
 	adcs_raw_magmeter_t raw_mag;
 	Boolean Magnetometer_Status;
+
 	modesetting.fields.mode = ctrl_mode_none; //setting mode to none(0)
 	eslADCS_setStateADCS(state_enabled); ////run the ADCS
 	eslADCS_setEstimationMode(est_magnetometer_rate); //set the estimation mode
@@ -220,6 +184,7 @@ void ADC_Stage_3()
 	eslADCS_setPwrCtrlDevice(Device_ctrl); //turn on motor power
 	eslADCS_deployMagnetometer(2); //first attempt entering what the value of the function to boom deploy
 	eslADCS_Magnetometer_Boom_Deployment_Enabled(&Magnetometer_Status);
+
 	if (Magnetometer_Status == FALSE)
 	{
 		eslADCS_deployMagnetometer(5);
@@ -318,7 +283,7 @@ void ADC_Stage_5()
 	Device_ctrl.fields.pwr_cubesense = selection_auto;
 	Device_ctrl.fields.pwr_gpsantlna = selection_auto;
 	Device_ctrl.fields.signal_cubecontrol = selection_auto;
-	adcs_orbitparam_t orbit_param;
+	//adcs_orbitparam_t orbit_param;
 	adcs_ctrlmodeset_t modesetting;
 	adcs_estmode_t mode;
 	adcs_attangles_t att_angles;
@@ -389,7 +354,7 @@ void ADC_Stage_6()
 	adcs_estmode_t mode = est_magnetometer_ratewithpitch;
 	adcs_magfieldvec_t mag_field;
 	adcs_ctrlmodeset_t modesetting;
-	adcs_ctrlmodeset_t modesetting1;
+	//adcs_ctrlmodeset_t modesetting1;
 	wheelspeed_cmd1.fields.speedY = 0;
 	modesetting.fields.mode = ctrl_mode_none;
 	eslADCS_setPwrCtrlDevice(Device_ctrl);
@@ -504,7 +469,7 @@ void ADC_Stage_8()
 	adcs_powerdev_t Device_ctrl;
 	adcs_angrate_t Ang_rates;
 	adcs_attangles_t att_angles;
-	adcsconf_ratesensor_t conf_ratesensor;
+	//adcsconf_ratesensor_t conf_ratesensor;
 	adcs_raw_css_t raw_css;
 	adcs_raw_nadir_t raw_nadir;
 	ADCS_comissioning_data commisioning_data;
@@ -558,6 +523,8 @@ void ADC_Stage_8()
 
 void task_adcs_commissioning()
 {
+	f_enterFS();
+	printf("delay for 18 seconds\n");
 	vTaskDelay(18000 / portTICK_RATE_MS);
 	adcs_stage = 1;
 	while(1)
