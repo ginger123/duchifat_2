@@ -347,6 +347,10 @@ void mnlp_listener()
 		retValInt = UART_read(bus, readData, readSize);
 		printf("return val is %d\n",retValInt);
 		print_array(readData,readSize);
+		if(readData[0]==0xBB)
+		{
+
+		}
 
 		Build_PayloadPacket(readData);
 
@@ -385,3 +389,33 @@ void turn_off_payload()
 	vTaskDelay(10);
 }
 
+char get_ERR_code()
+{
+	char *msg[24];
+	msg[0]= (char *){"IN RESET STATE CMD_ID 0x## IS A WRONG COMMAND"};
+	msg[1]= (char *){};
+		msg[2]= (char *){};
+		msg[3]= (char *){};
+		msg[4]= (char *){};
+		msg[5]= (char *){};
+		msg[6]= (char *){};
+		msg[7]= (char *){};
+		msg[8]= (char *){};
+		msg[9]= (char *){};
+		msg[10]= (char *){};
+		msg[11]= (char *){};
+		msg[12]= (char *){};
+		msg[13]= (char *){};
+		msg[14]= (char *){};
+		msg[15]= (char *){};
+		msg[16]= (char *){};
+		msg[17]= (char *){};
+		msg[18]= (char *){};
+		msg[19]= (char *){};
+		msg[20]= (char *){};
+		msg[21]= (char *){};
+		msg[22]= (char *){};
+		msg[23]= (char *){};
+		msg[24]= (char *){};
+
+	}
