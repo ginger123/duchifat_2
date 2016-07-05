@@ -197,115 +197,129 @@ void initialize_subsystems(gom_eps_hk_t* EpsTelemetry_hk, gom_eps_channelstates_
 
 void taskMain()
 {
-		unsigned short vbatt_previous;
-		xTaskHandle taskMNLPcomHandle;
-		xTaskHandle taskADCScomHandle;
-		//xTaskHandle taskMNLPlistener;
-		//ADCS_CUR_STATE ADc;
-		//ADc.flag = 0;
-		gom_eps_channelstates_t channels_state;
-		gom_eps_hk_t EpsTelemetry_hk;
-		isisRXtlm rxtlm;
-		ISIStrxvuRxTelemetry rx_tlm;
-		ISIStrxvuTxTelemetry tx_tlm;
-		ISISantsTelemetry ants_tlm;
-		unsigned long start_gs_time;
-		unsigned long time_now_unix;
-		unsigned long pt;
-		Boolean deployed;
+	unsigned short vbatt_previous;
+	xTaskHandle taskMNLPcomHandle,taskMNLPlistener;
+	xTaskHandle taskADCScomHandle;
+	//xTaskHandle taskMNLPlistener;
+	//ADCS_CUR_STATE ADc;
+	//ADc.flag = 0;
+	gom_eps_channelstates_t channels_state;
+	gom_eps_hk_t EpsTelemetry_hk;
+	isisRXtlm rxtlm;
+	ISIStrxvuRxTelemetry rx_tlm;
+	ISIStrxvuTxTelemetry tx_tlm;
+	ISISantsTelemetry ants_tlm;
+	unsigned long start_gs_time;
+	unsigned long time_now_unix;
+	unsigned long pt;
+	Boolean deployed;
 
+	if (0) // only for cubesupport
+	{
+		WDT_startWatchdogKickTask(10 / portTICK_RATE_MS, FALSE);
+		I2C_start(66000, 10);
+		printf("EPS initializing\n");
+		EPS_Init(&EpsTelemetry_hk, &channels_state, &vbatt_previous);
+		printf("Done\n");
 
-		// Initialize subsystems
-		initialize_subsystems(&EpsTelemetry_hk, &channels_state, &vbatt_previous);
-
-		deployed = check_ants_deployed();
-
-		FRAM_read((unsigned char *)&pt, TIME_ADDR, TIME_SIZE);
-
-		while(!deployed)
+		while (1)
 		{
-			GomEpsGetHkData_general(0, &EpsTelemetry_hk);
-			EPS_Power_Conditioning(&EpsTelemetry_hk, &vbatt_previous, &channels_state);
-			unsigned long rt;
-			Time_getUnixEpoch(&rt);
-			printf("rt%lu\n",rt);
-			printf("waited for love for %lu seconds \n", rt-pt);
-			if(rt - pt >= (unsigned long)5)
-			{
-				//deploy_ants();
-				deployed = TRUE;
-				pt = rt;
-				FRAM_write((unsigned char *)&pt, TIME_ADDR, TIME_SIZE);
-				Set_Mute(FALSE);
-			}
-			vTaskDelay(1000);
+			vTaskDelay(500);
+		}
+	}
+
+	// Initialize subsystems
+	initialize_subsystems(&EpsTelemetry_hk, &channels_state, &vbatt_previous);
+
+	deployed = check_ants_deployed();
+
+	FRAM_read((unsigned char *)&pt, TIME_ADDR, TIME_SIZE);
+
+	while(!deployed)
+	{
+		GomEpsGetHkData_general(0, &EpsTelemetry_hk);
+		EPS_Power_Conditioning(&EpsTelemetry_hk, &vbatt_previous, &channels_state);
+		unsigned long rt;
+		Time_getUnixEpoch(&rt);
+		printf("rt%lu\n",rt);
+		printf("waited for love for %lu seconds \n", rt-pt);
+		if(rt - pt >= (unsigned long)5)
+		{
+			//deploy_ants();
+			deployed = TRUE;
+			pt = rt;
+			FRAM_write((unsigned char *)&pt, TIME_ADDR, TIME_SIZE);
+			Set_Mute(FALSE);
+		}
+		vTaskDelay(1000);
+	}
+
+	unsigned long pt_beacon = pt;
+	unsigned long pt_hk = pt;
+	printf("love was given\n");
+
+	xTaskGenericCreate(taskmnlp, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPcomHandle, NULL, NULL);
+	xTaskGenericCreate(mnlp_listener, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPlistener, NULL, NULL);
+	//xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
+
+	while(1)
+	{
+		// 1. get telemetry trxvu
+		vurc_getRxTelemTest(&rxtlm);
+
+		IsisTrxvu_rcGetTelemetryAll(0, &rx_tlm);
+
+		IsisTrxvu_tcGetTelemetryAll(0,&tx_tlm);
+
+		IsisAntS_getAlltelemetry(0, isisants_sideA, &ants_tlm);
+
+		// 2. get telemetry EPS
+		GomEpsGetHkData_general(0, &EpsTelemetry_hk);
+
+		// 3. Take unix time
+		Time_getUnixEpoch(&time_now_unix);
+
+		if(time_now_unix - pt_hk >= 5)
+		{
+			pt_hk = time_now_unix;
+			HK_packet_build_save(EpsTelemetry_hk,rx_tlm,tx_tlm,ants_tlm);
+			eslADCS_telemetry_Time_Power_temp();
+			idtlm();
+			printf("local time: %lu\n",time_now_unix);
+		}
+		// 3. get telemetry ADCS
+
+		// 4. EPS power conditioning
+		EPS_Power_Conditioning(&EpsTelemetry_hk, &vbatt_previous, &channels_state);
+
+		trxvu_logic(&start_gs_time, &time_now_unix);
+
+		// 6. mNLP
+		//if(!(states & STATE_GS))
+		//{
+		// enter Mnlp code here!!!!
+		//}
+		if(time_now_unix - pt >= 60)
+		{
+			pt = time_now_unix;
+			FRAM_write((unsigned char *)&time_now_unix,TIME_ADDR, TIME_SIZE);
+		}
+		if(time_now_unix - pt_beacon >= BACON_TIME)
+		{
+			//dumpparam[0] = 3;
+			//convert_time_array(time_now_unix-60,&dumpparam[1]);
+			//convert_time_array(time_now_unix+10,&dumpparam[6]);
+			//dump(dumpparam);
+
+			printf("send beacon\n");
+			pt_beacon = time_now_unix;
+
+			//Beacon(EpsTelemetry_hk);
 		}
 
-		unsigned long pt_beacon = pt;
-		unsigned long pt_hk = pt;
-		printf("love was given\n");
-
-		xTaskGenericCreate(taskmnlp, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPcomHandle, NULL, NULL);
-		//xTaskGenericCreate(_mnlplistener, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPlistener, NULL, NULL);
-		//xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
-
-		while(1)
-		{
-			// 1. get telemetry trxvu
-			vurc_getRxTelemTest(&rxtlm);
-
-			IsisTrxvu_rcGetTelemetryAll(0, &rx_tlm);
-
-			IsisTrxvu_tcGetTelemetryAll(0,&tx_tlm);
-
-			IsisAntS_getAlltelemetry(0, isisants_sideA, &ants_tlm);
-
-			// 2. get telemetry EPS
-			GomEpsGetHkData_general(0, &EpsTelemetry_hk);
-
-			// 3. Take unix time
-			Time_getUnixEpoch(&time_now_unix);
-
-			if(time_now_unix - pt_hk >= 5)
-			{
-				pt_hk = time_now_unix;
-				HK_packet_build_save(EpsTelemetry_hk,rx_tlm,tx_tlm,ants_tlm);
-				//eslADCS_telemetry_Time_Power_temp();
-				printf("local time: %lu\n",time_now_unix);
-			}
-			// 3. get telemetry ADCS
-
-			// 4. EPS power conditioning
-			EPS_Power_Conditioning(&EpsTelemetry_hk, &vbatt_previous, &channels_state);
-
-			trxvu_logic(&start_gs_time, &time_now_unix);
-
-			// 6. mNLP
-			//if(!(states & STATE_GS))
-			//{
-				// enter Mnlp code here!!!!
-			//}
-			if(time_now_unix - pt >= 60)
-			{
-				pt = time_now_unix;
-				FRAM_write((unsigned char *)&time_now_unix,TIME_ADDR, TIME_SIZE);
-			}
-			if(time_now_unix - pt_beacon >= BACON_TIME)
-			{
-				//dumpparam[0] = 3;
-				//convert_time_array(time_now_unix-60,&dumpparam[1]);
-				//convert_time_array(time_now_unix+10,&dumpparam[6]);
-				//dump(dumpparam);
-
-				printf("send beacon\n");
-				pt_beacon = time_now_unix;
-
-				//Beacon(EpsTelemetry_hk);
-			}
-
-			vTaskDelay(2000 / portTICK_RATE_MS);
-			//add data to files
-		}
+		vTaskDelay(2000 / portTICK_RATE_MS);
+		//add data to files
+	}
 }
 
 

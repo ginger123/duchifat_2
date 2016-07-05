@@ -39,68 +39,55 @@
 #define GPIO_07 PIN_GPIO07
 
 
-void taskUARTtest(void *arguments) {
+void taskUARTtest()
+{
 	int retValInt = 0;
 	unsigned int readSize = 174, i;
-	unsigned char readData[174] = {0}, writeData[3] = {0x06,0x01,0x01};
-	UARTbus bus = *((UARTbus*)arguments);
+	unsigned char readData[174] = {0}, writeData[3] = {0x06,0x01,0x02};
+	UARTbus bus = bus0_uart;
 
 	Pin Pin04 = GPIO_04;
 	Pin Pin05 = GPIO_05;
 	Pin Pin06 = GPIO_06;
 	Pin Pin07 = GPIO_07;
 
-	printf("Uart test\n ");
-	retValInt = UART_write(bus, writeData,3); // Write 2 bytes more than we received for \n\r
-	while(1)
+	// set GPIO PINS
+		PIO_Set(&Pin04);
+		vTaskDelay(10);
+		PIO_Set(&Pin05);
+		vTaskDelay(10);
+		PIO_Set(&Pin06);
+		vTaskDelay(10);
+		PIO_Set(&Pin07);
+		vTaskDelay(10);
+
+	vTaskDelay(1000);
+
+
+
+	//retValInt = UART_read(bus, readData, readSize);
+	//printf("Uart test\n ");
+
+	for (i=0;i<10;i++)
 	{
-		printf("written command to mNLP, returned %d\n ",retValInt);
-
-			if(retValInt != 0) {
-				TRACE_WARNING("\n\r taskUARTtest: UART_write returned: %d for bus %d \n\r", retValInt, bus);
-			}
-
-			retValInt = UART_read(bus, readData, readSize);
-
-			for (i=0;i<readSize;i++)
-			{
-				if(i==0&&readData[i]==0xBB)
-				{
-					PIO_Clear(&Pin04);
-					vTaskDelay(10);
-					PIO_Clear(&Pin05);
-					vTaskDelay(10);
-					PIO_Clear(&Pin06);
-					vTaskDelay(10);
-					PIO_Clear(&Pin07);
-					vTaskDelay(10);
-
-					//retValInt = test_da_power_OFF();
-					printf("shitshitshitshit");
-				}
-				printf("%d: %x \n",i,readData[i]);
-			}
-			vTaskDelay(1000);
-
+		retValInt = UART_write(bus, writeData,3); // Write 2 bytes more than we received for \n\r
+		//vTaskDelay(500);
+		//writeData[2]++;
+		//retValInt = UART_read(bus, readData, readSize);
+		vTaskDelay(3000);
+		//print_array(readData,readSize);
 	}
-	if (0)
-	{
-			vTaskDelay(50);
-			for(i=0;i<1;i++)
-			{
-			retValInt = UART_read(bus, readData, readSize);
-					if(retValInt != 0) {
-						TRACE_WARNING("\n\r taskUARTtest: UART_read returned: %d for bus %d \n\r", retValInt, bus);
 
 
-					}
-
-				vTaskDelay(1);
-				printf("read packet number %d, first byte: %x , second: %x, third %x",i,readData[0],readData[1],readData[2]);
-			}
-
-
-	}
+	// turn off payload
+	PIO_Clear(&Pin04);
+	vTaskDelay(10);
+	PIO_Clear(&Pin05);
+	vTaskDelay(10);
+	PIO_Clear(&Pin06);
+	vTaskDelay(10);
+	PIO_Clear(&Pin07);
+	vTaskDelay(10);
 
 }
 
@@ -120,15 +107,7 @@ Boolean test_uart_payload() {
 
 	printf("\n tring sending staff to the mnLP \n");
 
-	// set GPIO PINS
-	PIO_Set(&Pin04);
-	vTaskDelay(10);
-	PIO_Set(&Pin05);
-	vTaskDelay(10);
-	PIO_Set(&Pin06);
-	vTaskDelay(10);
-	PIO_Set(&Pin07);
-	vTaskDelay(10);
+
 
 
 	// Both UART peripherals must be started separately as they can use different configurations.

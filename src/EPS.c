@@ -75,32 +75,42 @@ void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state
 	if(EPS_Cur_TLM->fields.vbatt < voltages[0]*100)
 	{
 		Safe(channels_state);
-		//GomEpsSetOutput(0, *channels_state); // Shuts down the ADCS actuators as well
+		GomEpsSetOutput(0, *channels_state); // Shuts down the ADCS actuators as well
 	}
 	else if(EPS_Cur_TLM->fields.vbatt < voltages[1]*100)
 	{
 		printf("ADCS ON\n");
 		Cruse(channels_state);
-		//GomEpsSetOutput(0, *channels_state); // Shuts down the transmitter as well
+		GomEpsSetOutput(0, *channels_state); // Shuts down the transmitter as well
 	}
 	else if(EPS_Cur_TLM->fields.vbatt < voltages[2]*100)
 	{
 		printf("ADCS ON\n");
 		Cruse(channels_state);
-		//GomEpsSetOutput(0, *channels_state); // Shuts down the payload
+		GomEpsSetOutput(0, *channels_state); // Shuts down the payload
 	}
 	else
 	{
 		printf("ADCS ON\n");
 		Cruse(channels_state);
-		//GomEpsSetOutput(0, *channels_state); // everything is on
+		GomEpsSetOutput(0, *channels_state); // everything is on
 	}
 	*vbatt_previous = EPS_Cur_TLM->fields.vbatt;
+	if (0)
+	{
 	GomEpsConfigGet(0, &eps_config);
-	eps_config.fields.battheater_low = HEATER_ON;
-	eps_config.fields.battheater_high = HEATER_OFF;
+	//printf("\n\n\nHeater low is: %d\n",eps_config.fields.battheater_low);
+	printf("Heater high is: %d\n",eps_config.fields.battheater_high);
+	printf("mode is: %d\n\n\n",eps_config.fields.battheater_mode);
+	eps_config.fields.battheater_low = 0;
+	eps_config.fields.battheater_high = 10;
 	eps_config.fields.battheater_mode = 1;
 	GomEpsConfigSet(0,&eps_config);
+	GomEpsConfigGet(0, &eps_config);
+	printf("\n\n\nHeater low is: %d\n",eps_config.fields.battheater_low);
+	printf("Heater high is: %d\n",eps_config.fields.battheater_high);
+	printf("mode is: %d\n\n\n",eps_config.fields.battheater_mode);
+	}
 }
 
 void Cruse(gom_eps_channelstates_t* channels_state)

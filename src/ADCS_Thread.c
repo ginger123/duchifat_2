@@ -102,6 +102,22 @@ void ADC_Stage_1()
 		commisioning_data.magnetic_field_vactor[1] = Mag_field.fields.y_magfield;//getting the data to the commisioning_data struct
 		commisioning_data.magnetic_field_vactor[2] = Mag_field.fields.z_magfield;
 
+		printf(" And Rates x: %d\n",commisioning_data.estimated_anglar_rates[0]);
+		printf(" And Rates y: %d\n",commisioning_data.estimated_anglar_rates[1]);
+		printf(" And Rates z: %d\n",commisioning_data.estimated_anglar_rates[2]);
+				//Ang Rates
+
+				//Sen Rates
+		printf(" Sen Rates x: %d\n",commisioning_data.sensor_rates[0]);
+		printf(" Sen Rates y: %d\n",commisioning_data.sensor_rates[1]);
+		printf(" Sen Rates z: %d\n",commisioning_data.sensor_rates[2]);
+			//Sen Rates
+
+				//Mag Field Vector
+		printf(" Mag Field Vector x: %d\n",commisioning_data.magnetic_field_vactor[0]);
+		printf(" Mag Field Vector y: %d\n",commisioning_data.magnetic_field_vactor[1]);
+		printf(" Mag Field Vector z: %d\n",commisioning_data.magnetic_field_vactor[2]);
+				//Mag Field Vector
 		WritewithEpochtime("adcs_file",0, (char *) &commisioning_data, sizeof(ADCS_comissioning_data));
 		printf("delay for 10 seconds\n");
 		vTaskDelay(10000 / portTICK_RATE_MS);
@@ -524,7 +540,9 @@ void ADC_Stage_8()
 void task_adcs_commissioning()
 {
 	f_enterFS();
+	unsigned char reset = 0x01;
 	printf("delay for 18 seconds\n");
+	I2C_write(0x12,&reset,1);
 	vTaskDelay(18000 / portTICK_RATE_MS);
 	adcs_stage = 1;
 	while(1)

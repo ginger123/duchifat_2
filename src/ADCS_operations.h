@@ -21,6 +21,7 @@ typedef struct ADCS_telemetry_data
 	unsigned char csense_nadirSRAMcurr;
 	unsigned char csense_sunSRAMcurr;
 	unsigned char demo;
+	unsigned char status[6];
 	unsigned short csense_3v3curr;
 	unsigned short arm_cpuTemp;
 	unsigned short ccontrol_3v3curr;
@@ -75,5 +76,6 @@ void Build_PayloadPacket(unsigned char *packet);
 void eslADCS_getCurrentPosition(adcs_currstate_t* current_state);
 void eslADCS_getRawNadirSensor(adcs_raw_nadir_t *raw_nadir);
 void eslADCS_setWheelSpeed(adcs_wheelspeed_t cmd_speed);
-
+void idtlm();
+void ADCS_get_status(unsigned char *status);
 #endif

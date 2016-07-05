@@ -144,7 +144,9 @@ void vurc_getRxTelemTest(isisRXtlm *converted)
 int TRX_sendFrame(unsigned char* data, unsigned char length)
 {
 	unsigned char avalFrames=0;
+	printf("sending data\n");
 	IsisTrxvu_tcSendAX25DefClSign(0, data, length, &avalFrames);
+	printf("sent data\n");
 	if(avalFrames==0) return -1;
 	availableFrames=avalFrames;
 	//printf("\navailable space in queue: %d\n",availableFrames);
@@ -185,7 +187,11 @@ void act_upon_comm(unsigned char* in)
 				{
 					dumpparam[i] = decode.data[i];
 				}
-				xTaskGenericCreate(dump, (const signed char*)"taskDump", 1024, (void *)&dumpparam[0], configMAX_PRIORITIES-2, &taskDumpHandle, NULL, NULL);
+				if (dump_created==0)
+				{
+					xTaskGenericCreate(dump, (const signed char*)"taskDump", 1024, (void *)&dumpparam[0], configMAX_PRIORITIES-2, &taskDumpHandle, NULL, NULL);
+					dump_created=1;
+				}
 
 			}
 		break;
@@ -320,6 +326,8 @@ void dump(void *arg)
 		char HK_packets[] = {"HK_packets"};
 		char ADC_comm[] = {"adcs_file"};
 		char ADC_tlm[] = {"adcs_tlm_file"};
+		char mnlp_file[] ={"mnlp"};
+
 		char *file;
 		unsigned char *temp_data;
 		int size=0;
@@ -353,6 +361,14 @@ void dump(void *arg)
 				size = sizeof(ADCS_telemetry_data);
 				printf("dump adc_tlm\n");
 				break;
+			case 4:
+				pct.srvc_type=130;
+				pct.srvc_subtype=1;
+				file = mnlp_file;
+				end_offest = sizeof(ADCS_Payload_Telemetry)+MNLP_DATA_SIZE;
+				size = sizeof(ADCS_Payload_Telemetry)+MNLP_DATA_SIZE;
+				printf("dump mnlp");
+				break;
 			default:
 				return;
 				break;
@@ -366,10 +382,11 @@ void dump(void *arg)
 
 		printf("sending %d packets\n",num_packets);
 
-		for(;i<num_packets;i++)//sending packets
+		for(i=0;i<num_packets;i++)//sending packets
 		{
+			printf("loop counter %d\n",i);
 			FileReadIndex(file, (char *)temp_data,size+5,start_idx+i);
-
+			print_array(temp_data,size+5);
 			// convert time to epoch time
 			t_l = convert_epoctime((char *) temp_data);
 			t_l = t_l -30*365*24*3600-24*3600*7;
@@ -377,7 +394,7 @@ void dump(void *arg)
 
 			pct.data = temp_data+5;
 
-			//switch_endian(pct.data + end_offest, size - end_offest);
+			switch_endian(pct.data + end_offest, size - end_offest);
 
 			//delete_packets_from_file(file, todel,size);
 			send_SCS_pct(pct);
@@ -389,10 +406,10 @@ void dump(void *arg)
 
 	}
 	dump_completed = 1;
-	//while (1)
-	//{
+	while (1)
+	{
 		vTaskDelay(500 / portTICK_RATE_MS);
-	//}
+	}
 
 }
 
@@ -490,6 +507,7 @@ void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix)
 		dump_created = 0;
 		dump_completed = 0;
 		vTaskDelete( taskDumpHandle );
+		printf("delete dump task\n");
 	}
 
 }

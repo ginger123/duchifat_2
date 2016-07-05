@@ -17,7 +17,7 @@ int uartstart, sqnc, active_sqnc, deactive_sqnc, tt_ctr;
 script_parse current_script;
 int sqnc_on, sqnc_complete;
 short sqnc_locations[6];
-int scripts_adresses[]={0x10000,0x12000,0x14000,0x16000,0x18000,0x1A000,0x1C000};
+int scripts_adresses[]={0x12000,0x14000,0x16000,0x18000,0x1A000,0x1C000,0x1E000};
 
 
 
@@ -49,7 +49,7 @@ void taskmnlp()//task for the mnlp operation
 	while (1)
 	{
 		// check the need to activate and parse a new script
-		printf("check for new script\n");
+		//printf("check for new script\n");
 		new_active_idx = check_new_script();		
 		
 		//script_ptr = &script_array[active_idx][0];
@@ -88,27 +88,45 @@ void taskmnlp()//task for the mnlp operation
 
 			// Check if time for running sequence			 
 			date = script_ptr[TIME_TABLE_START+tt_ctr*4] +script_ptr[TIME_TABLE_START+tt_ctr*4 + 1]*60 + script_ptr[TIME_TABLE_START+tt_ctr*4 + 2]*3600;
-			if (day_time>date && day_time<date+30)
+			if (day_time>date)
 			{
-				// activate script
-				sqnc_on = 1;
-				args[0] = active_idx;								
-				args[1] = (unsigned char) script_ptr[TIME_TABLE_START+tt_ctr*4+3];
 
-				if (args[1]!=MNLP_TT_EOT)
+				if (day_time<date+30)
 				{
-#ifdef SIMULATION
+					// activate script
 					sqnc_on = 1;
-					_sqncTask(args);
+					args[0] = active_idx;
+					args[1] = (unsigned char) script_ptr[TIME_TABLE_START+tt_ctr*4+3];
+
+					if (args[1]!=MNLP_TT_EOT)
+					{
+#ifdef SIMULATION
+						sqnc_on = 1;
+						_sqncTask(args);
 #else				
-					xTaskGenericCreate(_sqncTask, (const signed char*)"taskSqnce", 1024, (void *)args, configMAX_PRIORITIES - 2, &task_mNLP_sqnc, NULL, NULL);
+						xTaskGenericCreate(_sqncTask, (const signed char*)"taskSqnce", 1024, (void *)args, configMAX_PRIORITIES - 2, &task_mNLP_sqnc, NULL, NULL);
 #endif
-					tt_ctr += 1;
+						tt_ctr += 1;
+					}
+					else
+					{
+						tt_ctr = 0;
+					}
 				}
 				else 
 				{
-					tt_ctr = 0;
+					args[1] = (unsigned char) script_ptr[TIME_TABLE_START+tt_ctr*4+3];
+					if (args[1]==MNLP_TT_EOT)
+					{
+						tt_ctr = 0;
+					}
+					else
+					{
+						tt_ctr += 1;
+					}
+					//
 				}
+
 			}
 		}
 
@@ -186,6 +204,7 @@ unsigned short Fletcher16(unsigned char* data, int count) {
 int send_mnlp_cmd(unsigned char * sqnc_ptr)//send command to the mnlp
 {
 	char CMD_ID = sqnc_ptr[0];
+	UARTbus bus = bus0_uart;
 
 	switch (CMD_ID)
 	{
@@ -211,6 +230,7 @@ int send_mnlp_cmd(unsigned char * sqnc_ptr)//send command to the mnlp
 #ifdef SIMULATION
 			UART_write(sqnc_ptr, sqnc_ptr[1]+2);
 #else
+			UART_write(bus,sqnc_ptr, sqnc_ptr[1]+2);
 			print_array(sqnc_ptr,sqnc_ptr[1]+2);
 #endif
 			break;
@@ -259,14 +279,14 @@ int check_new_script()
 			j*=256;
 		}
 		script_start_time = script_start_time + UNIX_EPOCH_TIME_DIFF;
-		printf("current day time :%lu  mnlp  script start time: %lu script number: %d\n\n",cur_time, script_start_time,i );
+		//printf("current day time :%lu  mnlp  script start time: %lu script number: %d\n\n",cur_time, script_start_time,i );
 
 #endif
 		//compare to current time		
 
 		if (script_start_time > UNIX_EPOCH_TIME_DIFF && cur_time > script_start_time && script_start_time >latest_current_script)
 		{
-			printf("found: current day time :%lu  mnlp  script start time: %lu  script number: %d\n\n",cur_time, script_start_time,i );
+			//printf("found: current day time :%lu  mnlp  script start time: %lu  script number: %d\n\n",cur_time, script_start_time,i );
 			current_script_idx = i;
 			latest_current_script = script_start_time;
 		}
@@ -313,6 +333,25 @@ void parse_script(short active_idx)
 		byte_ctr++;
 		script_ptr++;
 	}	
+}
+
+void mnlp_listener()
+{
+	unsigned char readData[174];
+	int retValInt,readSize = 174;
+	UARTbus bus = bus0_uart;
+	f_enterFS();
+
+	while (1)
+	{
+		retValInt = UART_read(bus, readData, readSize);
+		printf("return val is %d\n",retValInt);
+		print_array(readData,readSize);
+
+		Build_PayloadPacket(readData);
+
+		vTaskDelay(500);
+	}
 }
 
 void turn_on_payload()

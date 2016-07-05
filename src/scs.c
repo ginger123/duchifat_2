@@ -11,7 +11,7 @@
 unsigned int ssc[HIGHEST_APID+1];//to keep track of ssc for each apid
 unsigned char frame_count;
 
-
+unsigned char is_sending=0;
 
 
 unsigned int Crc(unsigned char Data, unsigned short Syndrome)
@@ -47,6 +47,10 @@ short calc_crc( unsigned char* indata, int len )
 
 int send_SCS_pct(ccsds_packet pct_dat)
 {
+	while(is_sending==1) vTaskDelay(100);
+	is_sending=1;
+	printf("send scs pact\n");
+
 	// to review format of the below editing reference SCS documentation under ccsds telemetry packet
 	int retval=0;
 	unsigned char* ret;
@@ -92,12 +96,13 @@ int send_SCS_pct(ccsds_packet pct_dat)
 	chksm= calc_crc(ret,pct_dat.len+14);
 	ret[14+i++]=chksm>>8;
 	ret[14+i]=chksm;
-
+	printf("enter ax25 Send\n");
 	ax25send(ret,pct_dat.len+16);
 
 	ssc[pct_dat.apid]++;
 	FRAM_write(ssc,SSC_ADDR,(HIGHEST_APID+1)*4);
 	free(ret);
+	is_sending=0;
 	return retval;
 }
 
@@ -210,7 +215,7 @@ void tc_verification_report(rcvd_packet decode,unsigned char type,unsigned int c
 	else {
 		report.len=4;
 	}
-	//send_SCS_pct(report);
+	send_SCS_pct(report);
 }
 
 

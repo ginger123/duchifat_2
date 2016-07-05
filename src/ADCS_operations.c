@@ -229,7 +229,11 @@ void eslADCS_getPwrTempTlm(adcs_pwrtemptlm_t* pwrtemp_tlm)
 	unsigned char comm = 135;
 	unsigned char data[18];
 	I2C_write(0x12, &comm, 1);
+	vTaskDelay(5 / portTICK_RATE_MS);
 	I2C_read(0x12, data, 18);
+
+	//print_array(data,18);
+
 	pwrtemp_tlm->fields.csense_3v3curr = data[0] << 8;
 	pwrtemp_tlm->fields.csense_3v3curr += data[1];
 	pwrtemp_tlm->fields.csense_nadirSRAMcurr = data[2];
@@ -255,10 +259,14 @@ void eslADCS_telemetry_Time_Power_temp()
 {
 	ADCS_telemetry_data telemetry_data;
 	adcs_pwrtemptlm_t pwrtemp_tlm;
+
 	eslADCS_getPwrTempTlm(&pwrtemp_tlm);
+	ADCS_get_status(telemetry_data.status);
 	telemetry_data.sid=159;
 	telemetry_data.csense_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
+
 	telemetry_data.csense_nadirSRAMcurr = pwrtemp_tlm.fields.csense_nadirSRAMcurr;
+
 	telemetry_data.csense_sunSRAMcurr = pwrtemp_tlm.fields.csense_sunSRAMcurr;
 	telemetry_data.arm_cpuTemp = pwrtemp_tlm.fields.arm_cpuTemp;
 	telemetry_data.ccontrol_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
@@ -270,8 +278,19 @@ void eslADCS_telemetry_Time_Power_temp()
 	telemetry_data.magnetometer_temp = pwrtemp_tlm.fields.magnetometer_temp;
 	//printf("printing adcs telemetry\n");
 	//print_array((unsigned char*)&telemetry_data,sizeof(ADCS_telemetry_data));
-
+	//printf("3v3 curr %d\n",telemetry_data.csense_3v3curr);
+	//printf("arm cputemp %d\n",telemetry_data.arm_cpuTemp);
+	//printf("telemtry 3v3curr %d\n",telemetry_data.ccontrol_3v3curr);
 	WritewithEpochtime("adcs_tlm_file",0,(char *) &telemetry_data, sizeof(ADCS_telemetry_data));
+}
+
+void ADCS_get_status(unsigned char *status)
+{
+	unsigned char comm = 144;
+	I2C_write(0x12,	&comm, 1);
+	vTaskDelay(5 / portTICK_RATE_MS);
+	I2C_read(0x12, status, 6);
+	//print_array(status, 6);
 }
 
 void eslADCS_Magnetometer_Boom_Deployment_Enabled(Boolean* Magnetometer_Status)
@@ -478,7 +497,7 @@ void print_calibration(adcs_calibration *calibration)
 
 void Build_PayloadPacket(unsigned char *packet)
 {
-	char sd_file_name[] = {"Payload"};
+	char sd_file_name[] = {"mnlp"};
 
 	ADCS_Payload_Telemetry mnlp_header;
 	//for (i=0;i<174;i++)
@@ -491,4 +510,17 @@ void Build_PayloadPacket(unsigned char *packet)
 	WritewithEpochtime(sd_file_name, 0, (char *)&mnlp_header, sizeof(ADCS_Payload_Telemetry));
 	FileWrite(sd_file_name, 0, ( char *)packet, MNLP_DATA_SIZE);
 
+}
+
+void idtlm()
+{
+	unsigned char data[8];
+		unsigned char comm= 128;
+		I2C_write(0x12,&comm,1);
+
+		vTaskDelay(50 / portTICK_RATE_MS);
+
+		I2C_read(0x12,data,8);
+		//printf("ADCS TLM1 28\n");
+		//print_array(data,8);
 }

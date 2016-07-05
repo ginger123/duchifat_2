@@ -11,6 +11,6 @@
 Boolean test_uart_payload();
 Boolean test_da_power();
 int test_da_power_OFF();
-void taskUARTtest(void *arguments);
+void taskUARTtest();
 
 #endif /* TEST_H_ */

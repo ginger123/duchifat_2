@@ -3,6 +3,12 @@
 void InitializeFS()
 {
 	int ret;
+	char HK_packets[] = {"HK_packets"};
+	char ADC_comm[] = {"adcs_file"};
+	char ADC_tlm[] = {"adcs_tlm_file"};
+	char mnlp_file[] ={"mnlp"};
+	char wod_file[] = {"wod"};
+	F_FILE *file;
 
 	hcc_mem_init(); /* Initialize the memory to be used by filesystem */
 
@@ -15,8 +21,18 @@ void InitializeFS()
 
 	ret = f_initvolume( 0, atmel_mcipdc_initfunc, 0 ); /* Initialize volID as safe */
 
-	ret = f_format( 0, F_FAT32_MEDIA ); /* Format the filesystem */
+	//ret = f_format( 0, F_FAT32_MEDIA ); /* Format the filesystem */
 
+	file = f_open( HK_packets, "a" );
+	ret = f_close( file ); /* data is also considered safe when file is closed */
+	file = f_open( ADC_comm, "a" );
+	ret = f_close( file ); /* data is also considered safe when file is closed */
+	file = f_open( ADC_tlm, "a" );
+	ret = f_close( file ); /* data is also considered safe when file is closed */
+	file = f_open( mnlp_file, "a" );
+	ret = f_close( file ); /* data is also considered safe when file is closed */
+	file = f_open( wod_file, "a" );
+	ret = f_close( file ); /* data is also considered safe when file is closed */
 	//f_releaseFS(); /* release this task from the filesystem */
 
 }
@@ -189,24 +205,25 @@ int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,uns
 	// loop over packets in file - for each line: a. convert time to long int, b. check if in range
 
 	char temp[linesize];
-	int temp_ctr=0;
 	F_FILE *file2;
 	*start_idx = 0;
 	unsigned long curr_time=0;
 	unsigned long satt_time;
 	int num=0;
+	int ret_val;
 	file2 = f_open( Filename, "r" ); // open file for reading, which is always safe
 	ASSERT( ( file2 ), "f_open pb: %d\n\r", f_getlasterror() ); // if file pointer is NULL, get the error
 	Time_getUnixEpoch(&satt_time);
 	if(time_b>satt_time) time_b= satt_time-10;
 	if(time_a>satt_time-10) return 0;//something went terribly wrong
-	while( curr_time < time_b && temp_ctr<10) // do this for every char in the line
+
+	while( curr_time < time_b) // do this for every char in the line
 	{
-		f_read( temp, 1, linesize , file2 );
-		if(temp[0] == 256 + EOF)
+		ret_val = f_read( temp, 1, linesize , file2 );
+		if(linesize!=ret_val)
 		{
-			printf("final time is greater then last packet time!\n");
-			return num;//edited this so function returns if end of file is reached #BigFuckingIf
+			//printf("final time is greater then last packet time!\n");
+			break;//edited this so function returns if end of file is reached #BigFuckingIf
 		}
 		curr_time = convert_epoctime(temp);
 		printf("curr time is %lu last time is %lu\n",curr_time,time_b);
@@ -218,7 +235,7 @@ int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,uns
 		{
 			(*start_idx)++;
 		}
-		temp_ctr = temp_ctr+1;
+
 	}
 	f_close(file2);
 	return num;

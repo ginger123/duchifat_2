@@ -77,6 +77,7 @@ void _sqncTask(char * args);//task for the sqnc
 void _sqncTask(void * args);//task for the sqnc
 #endif
 void _mnlplistener(void* pvParameters);// readi9ng from the mnlp
+void mnlp_listener();
 
 unsigned short Fletcher16(unsigned char* data, int count);//check sum for the uploaded script
 

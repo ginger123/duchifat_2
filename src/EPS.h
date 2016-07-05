@@ -13,8 +13,9 @@
 #define EPS_VOLTAGE_ADDR 0x1000
 #define EPS_SID 166
 #define EPS_VOLTAGE_SIZE 6
-#define HEATER_ON -20
-#define HEATER_OFF -10
+
+#define HEATER_ON 0
+#define HEATER_OFF 10
 
 typedef struct HKP_Struct {
 	unsigned char sid;
