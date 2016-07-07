@@ -78,4 +78,7 @@ void eslADCS_getRawNadirSensor(adcs_raw_nadir_t *raw_nadir);
 void eslADCS_setWheelSpeed(adcs_wheelspeed_t cmd_speed);
 void idtlm();
 void ADCS_get_status(unsigned char *status);
+void ADCS_update_unix_time(unsigned long t);
+void ADCS_update_tle(unsigned char* tle);
+void ADCS_set_magnetometer_config();
 #endif

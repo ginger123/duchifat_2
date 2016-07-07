@@ -257,7 +257,12 @@ void act_upon_comm(unsigned char* in)
 				t+=decode.data[3];
 				printf("\nunix time is: %ld\n",t);
 				Time_setUnixEpoch(t);
+				ADCS_update_unix_time(t);
 
+			}
+			if(decode.srvc_subtype==2)
+			{
+				ADCS_update_tle(decode.data);
 			}
 			if(decode.srvc_subtype==4)
 			{

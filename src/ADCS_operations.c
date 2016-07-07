@@ -524,3 +524,29 @@ void idtlm()
 		//printf("ADCS TLM1 28\n");
 		//print_array(data,8);
 }
+
+void ADCS_update_unix_time(unsigned long t)
+{
+	unsigned char data[6]={t&0xff,(t>>8)&0xff,(t>>16)&0xff,(t>>24)&0xff,0,0};
+	ADCS_command(2,data,6);
+}
+
+void ADCS_update_tle(unsigned char* tle)
+{
+	int i,j,temp;
+	for(i=0;i<8;i++)//8 parameters to go over
+	{
+		for(j=0;j<4;j++)
+			{
+			temp=tle[i*8+j];
+			tle[i*8+j]= tle[(i+1)*8-1-j];
+			tle[(i+1)*8-1-j]=temp;
+			}
+	}
+	ADCS_command(64,tle,64);
+}
+void ADCS_set_magnetometer_config()
+{
+	unsigned char data[30] = {};
+	ADCS_command(86,data,30);
+}
