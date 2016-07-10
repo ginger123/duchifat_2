@@ -7,11 +7,14 @@
 #define STATE_MUTE 0x01
 #define STATE_GS 0x02
 #define STATE_MNLP_ON 0x04
+#define STATE_MUTE_EPS 0x08
+#define STATE_MNLP_ON_EPS 0x10
+#define STATE_ADCS_ON_EPS 0x20
 #define GS_TIME 420
 
 #define UNIX_EPOCH_TIME_DIFF 30*365*24*3600+7*24*3600
 
-extern unsigned char states; // 0 - mute, 1 - beacon
+extern unsigned char states;
 extern gom_eps_channelstates_t glb_channels_state;
 
 typedef struct global_param{

@@ -262,6 +262,7 @@ void taskMain()
 	xTaskGenericCreate(mnlp_listener, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPlistener, NULL, NULL);
 	//xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
 
+
 	while(1)
 	{
 		// 1. get telemetry trxvu
@@ -303,6 +304,12 @@ void taskMain()
 		{
 			pt = time_now_unix;
 			FRAM_write((unsigned char *)&time_now_unix,TIME_ADDR, TIME_SIZE);
+
+			// check tasks operation
+			check_task(&taskMNLPcomHandle,taskmnlp, (const signed char*)"taskMnlp", NULL);
+			check_task(&taskMNLPlistener,mnlp_listener, (const signed char*)"taskMnlp", NULL);
+			check_task(&taskADCScomHandle,task_adcs_commissioning, (const signed char*)"task_adcs_com", NULL);
+
 		}
 		if(time_now_unix - pt_beacon >= BACON_TIME)
 		{
@@ -316,6 +323,7 @@ void taskMain()
 
 			//Beacon(EpsTelemetry_hk);
 		}
+
 
 		vTaskDelay(2000 / portTICK_RATE_MS);
 		//add data to files
@@ -358,4 +366,14 @@ int main() {
 	}
 
 	return 0;
+}
+
+void check_task(xTaskHandle *handle,pdTASK_CODE task, const signed char *name, void *pvParameters)
+{
+	eTaskState task_state = eTaskGetState(handle);
+	if(task_state == eSuspended)
+	{
+		vTaskDelete(*handle);
+		xTaskGenericCreate(task, name, 1024, pvParameters, configMAX_PRIORITIES-2, handle, NULL, NULL);
+	}
 }

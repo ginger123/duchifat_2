@@ -18,7 +18,8 @@ script_parse current_script;
 int sqnc_on, sqnc_complete;
 short sqnc_locations[6];
 int scripts_adresses[]={0x12000,0x14000,0x16000,0x18000,0x1A000,0x1C000,0x1E000};
-
+unsigned char mnlp_err;
+unsigned long timeout_mnlp;
 
 
 //-------------------------------------------------------------------------------------
@@ -31,7 +32,8 @@ void taskmnlp()//task for the mnlp operation
 {
 #ifndef SIMULATION
 	xTaskHandle task_mNLP_sqnc;
-	
+	unsigned long cur_t;
+
 #endif
 	int active_idx=-1,new_active_idx;
 	int day_time;
@@ -51,7 +53,7 @@ void taskmnlp()//task for the mnlp operation
 		// check the need to activate and parse a new script
 		//printf("check for new script\n");
 		new_active_idx = check_new_script();		
-		
+
 		//script_ptr = &script_array[active_idx][0];
 		if (new_active_idx != active_idx && new_active_idx !=-1)
 			//for (active_script = 0; active_script < 7;active_script++)
@@ -63,7 +65,7 @@ void taskmnlp()//task for the mnlp operation
 			print_array((unsigned char *)sqnc_locations,12);
 			//restart time table counter
 			tt_ctr = 0;
-			
+
 #ifdef SIMULATION						
 			script_ptr= &script_array[active_idx][0];
 #else
@@ -76,13 +78,14 @@ void taskmnlp()//task for the mnlp operation
 
 		if (active_idx>=0)
 		{
-			
-		// check if need to activate sequence			
+
+			// check if need to activate sequence
 #ifdef SIMULATION			
 			day_time = get_day_time();						
 #else
 			Time t;
 			Time_get(&t);
+
 			day_time = t.hours *3600 + t.minutes*60 +t.seconds;
 #endif
 
@@ -103,8 +106,12 @@ void taskmnlp()//task for the mnlp operation
 #ifdef SIMULATION
 						sqnc_on = 1;
 						_sqncTask(args);
-#else				
-						xTaskGenericCreate(_sqncTask, (const signed char*)"taskSqnce", 1024, (void *)args, configMAX_PRIORITIES - 2, &task_mNLP_sqnc, NULL, NULL);
+#else
+						if (states & (STATE_MNLP_ON +STATE_MNLP_ON_EPS))
+						{
+							sqnc_on = 1;
+							xTaskGenericCreate(_sqncTask, (const signed char*)"taskSqnce", 1024, (void *)args, configMAX_PRIORITIES - 2, &task_mNLP_sqnc, NULL, NULL);
+						}
 #endif
 						tt_ctr += 1;
 					}
@@ -127,6 +134,35 @@ void taskmnlp()//task for the mnlp operation
 					//
 				}
 
+				//error handling
+				if(states & STATE_MNLP_ON)
+				{
+					Time_getUnixEpoch(&cur_t);
+					if(cur_t-timeout_mnlp>= MNLP_TIMEOUT)
+					{
+						printf("timeout\n");
+						timeout_mnlp=cur_t;
+						build_save_error_packets(active_idx,0);//got a timeout error
+						error_handle();
+						if(sqnc_on == 1)
+						{
+								vTaskDelete(task_mNLP_sqnc);
+								sqnc_on = 0;
+						}
+					}
+					if(mnlp_err!=0)
+					{
+						build_save_error_packets(active_idx,mnlp_err);//got an actual error from mnlp
+						error_handle();
+						mnlp_err=0;
+						if(sqnc_on == 1)
+						{
+								vTaskDelete(task_mNLP_sqnc);
+								sqnc_on = 0;
+						}
+					}
+
+				}
 			}
 		}
 
@@ -145,47 +181,47 @@ void taskmnlp()//task for the mnlp operation
 
 void _sqncTask(void *args)//task for the sqnc
 {
-    unsigned char * arg_ptr;
-    int i = 0;
-    int sqnc_num,active_idx,sqnc_len;
-    unsigned char * sqnc_ptr;
+	unsigned char * arg_ptr;
+	int i = 0;
+	int sqnc_num,active_idx,sqnc_len;
+	unsigned char * sqnc_ptr;
 	int delay;
 	arg_ptr = (unsigned char *)args;
 
-    sqnc_num = (int) arg_ptr[1] - 0x41;
-    active_idx = (int) arg_ptr[0];
-        
-    printf("i'm in a sqnce :)\n");
-    // load sequence from memory
-    sqnc_len = sqnc_locations[sqnc_num + 1] - sqnc_locations[sqnc_num];
+	sqnc_num = (int) arg_ptr[1] - 0x41;
+	active_idx = (int) arg_ptr[0];
+
+	printf("i'm in a sqnce :)\n");
+	// load sequence from memory
+	sqnc_len = sqnc_locations[sqnc_num + 1] - sqnc_locations[sqnc_num];
 
 #ifdef SIMULATION
-    sqnc_ptr = &script_array[active_idx][sqnc_locations[sqnc_num]];
+	sqnc_ptr = &script_array[active_idx][sqnc_locations[sqnc_num]];
 #else    
-    sqnc_ptr = (unsigned char *)calloc(sqnc_len, sizeof(char));
-    FRAM_read(sqnc_ptr, scripts_adresses[active_idx]+ sqnc_locations[sqnc_num], sqnc_len);
+	sqnc_ptr = (unsigned char *)calloc(sqnc_len, sizeof(char));
+	FRAM_read(sqnc_ptr, scripts_adresses[active_idx]+ sqnc_locations[sqnc_num], sqnc_len);
 #endif
 
-    //activate sequence
-    while (sqnc_ptr[2]!=OBC_EOT)
-    {
-        delay = sqnc_ptr[0] + sqnc_ptr[1] * 60;
-        vTaskDelay(delay*1000);
+	//activate sequence
+	while (sqnc_ptr[2]!=OBC_EOT)
+	{
+		delay = sqnc_ptr[0] + sqnc_ptr[1] * 60;
+		vTaskDelay(delay*1000);
 
-        //execute command
-        send_mnlp_cmd(sqnc_ptr + 2);
+		//execute command
+		send_mnlp_cmd(sqnc_ptr + 2);
 
-        sqnc_ptr += (sqnc_ptr[3]+4);
-    }
+		sqnc_ptr += (sqnc_ptr[3]+4);
+	}
 
 	sqnc_complete = 1;
 #ifndef SIMULATION
-    while (1)
-    {
-        vTaskDelay(5000);
-    }
+	while (1)
+	{
+		vTaskDelay(5000);
+	}
 #endif
-    
+
 }
 
 unsigned short Fletcher16(unsigned char* data, int count) {
@@ -208,35 +244,36 @@ int send_mnlp_cmd(unsigned char * sqnc_ptr)//send command to the mnlp
 
 	switch (CMD_ID)
 	{
-		case ((char)0xf1):
-		{
-			printf("switch on MNLP\n");
+	case ((char)0xf1):
+				{
+		printf("switch on MNLP\n");
 #ifndef SIMULATION
-			turn_on_payload();
+		turn_on_payload();
+		Time_getUnixEpoch(&timeout_mnlp);
 #endif
-			break;
-		}
-		case ((char)0xf2) :
-		{
-			printf("switch off MNLP\n");
+		break;
+				}
+	case ((char)0xf2) :
+				{
+		printf("switch off MNLP\n");
 #ifndef SIMULATION
-			turn_off_payload();
+		turn_off_payload();
 #endif
-			break;
-		}
-		default:
-		{
-			printf("Send Command \n");
+		break;
+				}
+	default:
+	{
+		printf("Send Command \n");
 #ifdef SIMULATION
-			UART_write(sqnc_ptr, sqnc_ptr[1]+2);
+		UART_write(sqnc_ptr, sqnc_ptr[1]+2);
 #else
-			UART_write(bus,sqnc_ptr, sqnc_ptr[1]+2);
-			print_array(sqnc_ptr,sqnc_ptr[1]+2);
+		UART_write(bus,sqnc_ptr, sqnc_ptr[1]+2);
+		print_array(sqnc_ptr,sqnc_ptr[1]+2);
 #endif
-			break;
-		}
+		break;
 	}
-		
+	}
+
 	return 0;
 }
 
@@ -259,7 +296,7 @@ int check_new_script()
 	// Get unix time
 	Time_getUnixEpoch(&cur_time);
 #endif
-	
+
 	//go over all scripts saved in memory and read start times
 	for (i = 0; i < NUM_SCRIPTS; i++)
 	{
@@ -344,22 +381,35 @@ void mnlp_listener()
 
 	while (1)
 	{
-		retValInt = UART_read(bus, readData, readSize);
-		printf("return val is %d\n",retValInt);
-		print_array(readData,readSize);
-		if(readData[0]==0xBB)
+
+		// only if ADCS is turned on
+		if (states & STATE_MNLP_ON)
 		{
+			retValInt = UART_read(bus, readData, readSize);
 
+
+			print_array(readData,readSize);
+			if(readData[0]==0xBB)
+			{
+				mnlp_err= get_ERR_code(readData);
+			}
+			else//everything is good
+			{
+				if (readData[0]==0x09 || readData[0]==0x0A)
+				{
+					Time_getUnixEpoch(&timeout_mnlp);
+					printf("return val is %d\n",retValInt);
+				}
+				Build_PayloadPacket(readData);
+			}
 		}
-
-		Build_PayloadPacket(readData);
-
 		vTaskDelay(500);
 	}
 }
 
 void turn_on_payload()
 {
+	states |= STATE_MNLP_ON;
 	Pin Pin04 = GPIO_04;
 	Pin Pin05 = GPIO_05;
 	Pin Pin06 = GPIO_06;
@@ -389,33 +439,94 @@ void turn_off_payload()
 	vTaskDelay(10);
 }
 
-char get_ERR_code()
+char get_ERR_code(unsigned char * pct)
 {
 	char *msg[24];
 	msg[0]= (char *){"IN RESET STATE CMD_ID 0x## IS A WRONG COMMAND"};
-	msg[1]= (char *){};
-		msg[2]= (char *){};
-		msg[3]= (char *){};
-		msg[4]= (char *){};
-		msg[5]= (char *){};
-		msg[6]= (char *){};
-		msg[7]= (char *){};
-		msg[8]= (char *){};
-		msg[9]= (char *){};
-		msg[10]= (char *){};
-		msg[11]= (char *){};
-		msg[12]= (char *){};
-		msg[13]= (char *){};
-		msg[14]= (char *){};
-		msg[15]= (char *){};
-		msg[16]= (char *){};
-		msg[17]= (char *){};
-		msg[18]= (char *){};
-		msg[19]= (char *){};
-		msg[20]= (char *){};
-		msg[21]= (char *){};
-		msg[22]= (char *){};
-		msg[23]= (char *){};
-		msg[24]= (char *){};
+	msg[1]= (char *){"START CALIBRATION: WRONG COMMAND CMD_ID 0x## not equal SU_CAL (0x##)"};
+	msg[2]= (char *){"START CALIBRATION: WRONG COMMAND LEN # not equal to 2"};
+	msg[3]= (char *){"START CALIBRATION: WRONG CH#"};
+	msg[4]= (char *){"Tried g_gpio_mLP_ch_enable data ready # times, then the function gives up"};
+	msg[5]= (char *){"FAILED IN HEALTH CHECK"};
+	msg[6]= (char *){"FAILED TO TURN PROBE BIAS ON"};
+	msg[7]= (char *){"PROBE BIAS TURNED OFF"};
+	msg[8]= (char *){"FAILED TO TURN PROBE BIAS OFF"};
+	msg[9]= (char *){"FAILED TO TURN PROBE MTEE ON"};
+	msg[10]= (char *){"MTEE TURNED OFF"};
+	msg[11]= (char *){"FAILED TO TURN MTEE OFF"};
+	msg[12]= (char *){"FAILED TO RUN CALIBRATION"};
+	msg[13]= (char *){"FAILED IN HEALTH CHECK"};
+	msg[14]= (char *){"FAILED TO SETUP HOUSEKEEPING"};
+	msg[15]= (char *){"FAILED TO SETUP STM"};
+	msg[16]= (char *){"MNLP IN UNKNOWN STATE"};
+	msg[17]= (char *){"START SCIENCE: BIAS IS NOT ON"};
+	msg[18]= (char *){"START SCIENCE: HEALTH CHECK IS NOT PERFORMED"};
+	msg[19]= (char *){"START SCIENCE: WRONG COMMAND CMD_ID 0x## not equal SU_SCI (0x##)"};
+	msg[20]= (char *){"START SCIENCE: WRONG COMMAND LEN # not equal to 3"};
+	msg[21]= (char *){"LOAD PARAMETERS: WRONG COMMAND CMD_ID 0x## not equal SU_LDP (0x##)"};
+	msg[22]= (char *){"LOAD PARAMETERS: WRONG COMMAND LEN # not equal to QB50_LEN_MAX (#)"};
+	msg[23]= (char *){"setProbeBias_mNlp(#) error, only 0: OFF and 1: ON are allowed"};
+	int len= pct[2];
 
+	int i=0,j=0;
+	int ret=-1;
+	pct+=3;
+	for(i=0;i<24;i++)
+	{
+		for(j=0;j<len;j++)
+		{
+			if(msg[i][j]!='#' && msg[i][j]!=pct[j]) break;
+		}
+		if(j==len-1) ret=i;
 	}
+	return ret;
+}
+
+
+void build_save_error_packets(int active_idx,unsigned char err)
+{
+	unsigned char mnlp_error_packet[MNLP_DATA_SIZE];
+	short length;
+	int i;
+
+	mnlp_error_packet[0] = 0xFA;
+	mnlp_error_packet[1] = 0x00;
+	mnlp_error_packet[2] = err;
+
+
+	// add header for active index
+	// read length
+	FRAM_read((unsigned char *)&length, scripts_adresses[active_idx], 2);
+
+	// read xsum to mnlp_error_packet
+	FRAM_read(&mnlp_error_packet[3], scripts_adresses[active_idx]+length-2, 2);
+
+	// read header to place
+	FRAM_read(&mnlp_error_packet[5], scripts_adresses[active_idx]+2, 10);
+
+
+
+	// add rest of indices
+	for (i = 0; i < NUM_SCRIPTS; i++)
+	{
+		// read length
+		FRAM_read((unsigned char *)&length, scripts_adresses[i], 2);
+
+		// read xsum to mnlp_error_packet
+		FRAM_read(&mnlp_error_packet[15+i*12], scripts_adresses[i]+length-2, 2);
+
+		// read header to place
+		FRAM_read(&mnlp_error_packet[17+i*12], scripts_adresses[i]+2, 10);
+	}
+
+	Build_PayloadPacket(mnlp_error_packet);
+}
+
+void error_handle( )
+{
+
+
+	turn_off_payload();
+	vTaskDelay(60000);
+	turn_on_payload();
+}

@@ -30,6 +30,8 @@
 #define MAX_SQNC_NUM 25
 #define TO_SEND_LENGTH 3
 
+#define MNLP_TIMEOUT 300
+
 #define GPIO_04	PIN_GPIO04
 #define GPIO_05	PIN_GPIO05
 #define GPIO_06	PIN_GPIO06
@@ -110,4 +112,8 @@ void parse_script(short active_idx);
 
 extern int scripts_adresses[NUM_SCRIPTS];
 
+void build_save_error();
+char get_ERR_code(unsigned char * pct);
+void build_save_error_packets(int active_idx,unsigned char err);
+void error_handle();
 #endif /* MNLP_H_ */
