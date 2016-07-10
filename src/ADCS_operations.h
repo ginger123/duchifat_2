@@ -78,7 +78,12 @@ void eslADCS_getRawNadirSensor(adcs_raw_nadir_t *raw_nadir);
 void eslADCS_setWheelSpeed(adcs_wheelspeed_t cmd_speed);
 void idtlm();
 void ADCS_get_status(unsigned char *status);
+void ADCS_set_magnetometer_config();
 void ADCS_update_unix_time(unsigned long t);
 void ADCS_update_tle(unsigned char* tle);
-void ADCS_set_magnetometer_config();
+void get_sat_llh_pos(adcs_refllhcoord_t *llh_in);
+void adcs_reset(unsigned char type);
+void adcs_set_estimation_param();
+void eslADCS_getCalNadirSensor();
+void eslADCS_getCalSunSensor();
 #endif

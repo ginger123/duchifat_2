@@ -7,7 +7,7 @@
 
 
 #include "ADCS_operations.h"
-
+#include "math.h"
 
 #ifndef NULL
 #define NULL ( (void *) 0)
@@ -58,7 +58,11 @@ void adc_stages(int stage)
 			adcs_stage = 7;
 			ADC_Stage_7();
 			break;
-
+		case 8:
+			printf("%d\n", 8);
+			adcs_stage = 8;
+			ADC_Stage_8();
+			break;
 		default:
 		break;
 	}
@@ -102,9 +106,9 @@ void ADC_Stage_1()
 		commisioning_data.magnetic_field_vactor[1] = Mag_field.fields.y_magfield;//getting the data to the commisioning_data struct
 		commisioning_data.magnetic_field_vactor[2] = Mag_field.fields.z_magfield;
 
-		printf(" And Rates x: %d\n",commisioning_data.estimated_anglar_rates[0]);
-		printf(" And Rates y: %d\n",commisioning_data.estimated_anglar_rates[1]);
-		printf(" And Rates z: %d\n",commisioning_data.estimated_anglar_rates[2]);
+		printf(" estimated angular rates x: %f deg/s\n",0.01*commisioning_data.estimated_anglar_rates[0]);
+		printf(" estimated angular rates y: %f deg/s\n",0.01*commisioning_data.estimated_anglar_rates[1]);
+		printf(" estimated angular rates z: %f deg/s\n",0.01*commisioning_data.estimated_anglar_rates[2]);
 				//Ang Rates
 
 				//Sen Rates
@@ -114,10 +118,11 @@ void ADC_Stage_1()
 			//Sen Rates
 
 				//Mag Field Vector
-		printf(" Mag Field Vector x: %d\n",commisioning_data.magnetic_field_vactor[0]);
-		printf(" Mag Field Vector y: %d\n",commisioning_data.magnetic_field_vactor[1]);
-		printf(" Mag Field Vector z: %d\n",commisioning_data.magnetic_field_vactor[2]);
+		printf(" Mag Field Vector x: %f nT\n",10*(float)commisioning_data.magnetic_field_vactor[0]);
+		printf(" Mag Field Vector y: %f nT\n",10*(float)commisioning_data.magnetic_field_vactor[1]);
+		printf(" Mag Field Vector z: %f nT\n",10*(float)commisioning_data.magnetic_field_vactor[2]);
 				//Mag Field Vector
+		//printf(" total size is %f nT\n", (pow(commisioning_data.magnetic_field_vactor[0],2)+pow(commisioning_data.magnetic_field_vactor[1],2)+pow(commisioning_data.magnetic_field_vactor[2],2)));
 		WritewithEpochtime("adcs_file",0, (char *) &commisioning_data, sizeof(ADCS_comissioning_data));
 		printf("delay for 10 seconds\n");
 		vTaskDelay(10000 / portTICK_RATE_MS);
@@ -424,12 +429,13 @@ void ADC_Stage_6()
 
 void ADC_Stage_7()
 {
+	adcs_estmode_t mode;
 	adcs_powerdev_t Device_ctrl;
-	Device_ctrl.fields.pwr_motor = selection_auto;
-	Device_ctrl.fields.motor_cubecontrol = selection_auto;
+	Device_ctrl.fields.pwr_motor = selection_on;
+	Device_ctrl.fields.motor_cubecontrol = selection_on;
 	Device_ctrl.fields.pwr_cubesense = selection_on;
 	Device_ctrl.fields.pwr_gpsantlna = selection_auto;
-	Device_ctrl.fields.signal_cubecontrol = selection_auto;
+	Device_ctrl.fields.signal_cubecontrol = selection_on;
 	adcs_raw_nadir_t raw_nadir;
 	adcs_raw_sun_t raw_sun;
 	adcs_raw_css_t raw_css;
@@ -438,11 +444,21 @@ void ADC_Stage_7()
 	adcs_angrate_t Sen_rates;
 	ADCS_comissioning_data commisioning_data;
 	adcs_unixtime_t unix_time;
+	mode = est_full_state_ekf;
+	unsigned long t;
+
 	eslADCS_setStateADCS(state_enabled);
-	eslADCS_getCurrentTime(&unix_time);
+	//eslADCS_getCurrentTime(&unix_time);
+	Time_getUnixEpoch(&t);
+	t = 1468080000;
+	ADCS_update_unix_time(t);
 	//eslADCS_setOrbitParam(); //need to complete
+	ADCS_update_tle((unsigned char*)&t);
 	//need to complete set estimation parameters
+	//adcs_set_estimation_param();
 	eslADCS_setPwrCtrlDevice(Device_ctrl);
+	eslADCS_setEstimationMode(mode);
+
 	while (adcs_stage == 7)
 	{
 		commisioning_data.sid = ADC_SID;
@@ -475,6 +491,8 @@ void ADC_Stage_7()
 		commisioning_data.RAW_sun_sensors[1] = raw_sun.fields.sun_centroid_y;
 		commisioning_data.RAW_sun_sensors[2] = raw_sun.fields.sun_busystatus;
 		commisioning_data.RAW_sun_sensors[3] = raw_sun.fields.sun_result;
+		adcs_refllhcoord_t llh_in;
+		get_sat_llh_pos(&llh_in);
 		vTaskDelay(10000 / portTICK_RATE_MS); //Delay of 10s
 		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));
 	}
@@ -520,6 +538,8 @@ void ADC_Stage_8()
 		commisioning_data.RAW_CSS[3] = raw_css.fields.css_4;
 		commisioning_data.RAW_CSS[4] = raw_css.fields.css_5;
 		commisioning_data.RAW_CSS[5] = raw_css.fields.css_6;
+
+
 	    eslADCS_getRawNadirSensor(&raw_nadir);
 	    commisioning_data.RAW_nadir_sensors[0] = raw_nadir.fields.nadir_centroid_x;
 	    commisioning_data.RAW_nadir_sensors[1] = raw_nadir.fields.nadir_centroid_y;
@@ -530,6 +550,8 @@ void ADC_Stage_8()
 		commisioning_data.RAW_sun_sensors[1] = raw_sun.fields.sun_centroid_y;
 		commisioning_data.RAW_sun_sensors[2] = raw_sun.fields.sun_busystatus;
 		commisioning_data.RAW_sun_sensors[3] = raw_sun.fields.sun_result;
+		eslADCS_getCalSunSensor(&raw_sun);
+		eslADCS_getCalNadirSensor(&raw_sun);
 		vTaskDelay(10000 / portTICK_RATE_MS);
 		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));;
 	}
@@ -537,14 +559,28 @@ void ADC_Stage_8()
 
 
 
+
+
 void task_adcs_commissioning()
 {
 	f_enterFS();
-	unsigned char reset = 0x01;
-	printf("delay for 18 seconds\n");
-	I2C_write(0x12,&reset,1);
-	vTaskDelay(18000 / portTICK_RATE_MS);
-	adcs_stage = 1;
+
+	adcs_calibration calibration;
+	//printf("delay for 18 seconds\n");
+	adcs_reset(1);
+	adcs_reset(4);
+	//I2C_write(0x12,&reset_com);
+
+	//I2C_write(0x12,&reset,1);
+	//vTaskDelay(18000 / portTICK_RATE_MS);
+
+
+
+
+	//eslADCS_getCalibration(&calibration);
+	//print_calibration(&calibration);
+
+	adcs_stage = 7;
 	while(1)
 	{
 		printf("enter stage %d\n",adcs_stage);
