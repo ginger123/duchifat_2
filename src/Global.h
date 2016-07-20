@@ -14,6 +14,8 @@
 
 #define UNIX_EPOCH_TIME_DIFF 30*365*24*3600+7*24*3600
 
+#define MUTE_ADDR 0x10C3
+
 extern unsigned char states;
 extern gom_eps_channelstates_t glb_channels_state;
 
@@ -31,7 +33,7 @@ unsigned char tempBatt;
 extern global_param glb;
 
 
-void Set_Mute(Boolean bool);
+void Set_Mute(Boolean bool);// 0 is mute off ,1 is mute on 2 is mute_eps on 3 is both mutes on
 void Set_Mnlp_State(Boolean state);
 void Set_Vbatt(unsigned short Vbatt);
 void Set_Cursys(unsigned short cursys);
@@ -44,7 +46,7 @@ unsigned long convert_epoctime(char packet[]);
 void convert_time_array(unsigned long t_l, unsigned char time[5]);
 void print_array(unsigned char *arr,int length);
 void switch_endian(unsigned char *in, int len);
-
+void double_little_endian(unsigned char* d);
 Boolean Get_Mute();
 
 double Min(double a, double b);

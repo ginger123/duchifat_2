@@ -23,16 +23,19 @@ double Max(double a, double b)
 
 void Set_Mute(Boolean bool)
 {
-	if(bool)
+	unsigned char save;
+	if(bool==TRUE)
 	{
 		states = states | STATE_MUTE;
+		save=1;
 	}
 	else
 	{
-		states = states & !(STATE_MUTE);
+		states &= ~STATE_MUTE;
+		save=0;
 	}
+	FRAM_write(&save,MUTE_ADDR,1);
 }
-
 void Set_Mnlp_State(Boolean state)
 {
 	glb.Mnlp_State = state;
@@ -76,7 +79,12 @@ void Set_tempBatt(short temp)
 
 Boolean Get_Mute()
 {
-	if(states & STATE_MUTE)
+	unsigned char bool;
+	FRAM_read(&bool,MUTE_ADDR,1);//check in memory if mute is on
+	if(bool) Set_Mute(TRUE);//acts by what is  in fram so it wont transmit after rebooting
+	else Set_Mute(FALSE);
+
+	if((states & STATE_MUTE) || (states& STATE_MUTE_EPS))
 	{
 		return TRUE;
 	}
@@ -126,5 +134,17 @@ void switch_endian(unsigned char *in, int len)
 		//in[len - 1 - i] = temp;
 		in[i]=in[i+1];
 		in[i+1]=temp;
+	}
+}
+
+void double_little_endian(unsigned char* d)
+{
+	int i=0;
+	char temp;
+	for(i=0;i<4;i++)
+	{
+		temp=d[i];
+		d[i]=d[7-i];
+		d[7-i]=temp;
 	}
 }

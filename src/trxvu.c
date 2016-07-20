@@ -539,7 +539,7 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 	beacon.len=9;
 	update_time(beacon.c_time);
 
-	if(!Get_Mute() && !((states & STATE_GS) == STATE_GS))
+	if(!Get_Mute() )
 	{
 		update_time(beacon.c_time);
 		Set_Vbatt(EpsTelemetry_hk.fields.vbatt);
