@@ -276,7 +276,7 @@ void act_upon_comm(unsigned char* in)
 				send_SCS_pct(response);
 				printf("Command report Time\n");
 			}
-			if(decode.srvc_type == 3)
+			if(decode.srvc_subtype == 3)
 			{
 				unsigned char n_voltages[EPS_VOLTAGE_SIZE];
 				int i = 0;
@@ -285,6 +285,11 @@ void act_upon_comm(unsigned char* in)
 					n_voltages[i] = decode.data[i];
 				}
 				FRAM_write(n_voltages, EPS_VOLTAGE_ADDR, EPS_VOLTAGE_SIZE);
+				vTaskDelay(1);
+				unsigned char voltages[EPS_VOLTAGE_SIZE];
+				FRAM_read(voltages,EPS_VOLTAGE_ADDR, EPS_VOLTAGE_SIZE);
+				print_array(n_voltages,6);
+				print_array(voltages,6);
 			}
 		break;
 		default:
@@ -310,7 +315,7 @@ void dump(void *arg)
 
 	//dump_created = 1;
 
-	if(!Get_Mute())
+	if(!Get_Mute() && !(states & STATE_MUTE_EPS))
 	{
 		unsigned char type = 0;unsigned long start_time = 0; unsigned long final_time = 0;
 		unsigned char* argument = (unsigned char*)arg;
@@ -424,11 +429,11 @@ void enter_gs_mode(unsigned long *start_gs_time)
 {
 	printf("enter ground station mode");
 	// Enter ground station mode
-	states = states | STATE_GS;
+	states |= STATE_GS;
 
 	//Disable Mnlp
-	glb_channels_state.fields.channel3V3_2 = 0;
-	glb_channels_state.fields.channel5V_2 = 0;
+	//glb_channels_state.fields.channel3V3_2 = 0;
+	//glb_channels_state.fields.channel5V_2 = 0;
 	//GomEpsSetOutput(0, glb_channels_state);
 
 	//Sets the initial time of the pass
@@ -438,11 +443,11 @@ void enter_gs_mode(unsigned long *start_gs_time)
 void end_gs_mode()
 {
 	printf("exit ground station mode");
-	//Exit grout station mode
-	states = states & !(STATE_GS);
+	//Exit ground station mode
+	states &= ~STATE_GS;
 	//initialize Mnlp
-	glb_channels_state.fields.channel3V3_2 = 1;
-	glb_channels_state.fields.channel5V_2 = 1;
+	//glb_channels_state.fields.channel3V3_2 = 1;
+	//glb_channels_state.fields.channel5V_2 = 1;
 	//GomEpsSetOutput(0, glb_channels_state);
 }
 
@@ -539,8 +544,9 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 	beacon.len=9;
 	update_time(beacon.c_time);
 
-	if(!Get_Mute() )
+	if(!Get_Mute() && !(states & STATE_MUTE_EPS))
 	{
+		printf("send beacon\n");
 		update_time(beacon.c_time);
 		Set_Vbatt(EpsTelemetry_hk.fields.vbatt);
 		Set_Cursys(EpsTelemetry_hk.fields.cursys);

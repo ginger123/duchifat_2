@@ -164,7 +164,7 @@ void initialize_subsystems(gom_eps_hk_t* EpsTelemetry_hk, gom_eps_channelstates_
 	//initialize EPS
 	if(!deployed)
 	{
-		unsigned char voltages[6] = {65,72,74,75,73,66};
+		unsigned char voltages[6] = {65,72,74,75,73,66}; //
 		FRAM_write(voltages, EPS_VOLTAGE_ADDR, EPS_VOLTAGE_SIZE);
 	}
 	EPS_Init(EpsTelemetry_hk, channels_state, vbatt_previous);
@@ -297,7 +297,7 @@ void taskMain()
 			HK_packet_build_save(EpsTelemetry_hk,rx_tlm,tx_tlm,ants_tlm);
 			eslADCS_telemetry_Time_Power_temp();
 			idtlm();
-			printf("local time: %lu\n",time_now_unix);
+			printf("local time: %lu bat volt %d    states  %x\n",time_now_unix,EpsTelemetry_hk.fields.vbatt, states);
 		}
 		// 3. get telemetry ADCS
 
@@ -329,10 +329,10 @@ void taskMain()
 			//convert_time_array(time_now_unix+10,&dumpparam[6]);
 			//dump(dumpparam);
 
-			printf("send beacon\n");
+
 			pt_beacon = time_now_unix;
 
-			//Beacon(EpsTelemetry_hk);
+			Beacon(EpsTelemetry_hk);
 		}
 
 
