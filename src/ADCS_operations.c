@@ -699,6 +699,27 @@ adcs_reset(unsigned char type)
 	vTaskDelay(15000);
 
 }
+
 adcs_set_estimation_param()
 {
+}
+
+void eslADCS_getSatelliteVelocityVec(adcs_ecirefvel_t* sat_vel)
+{
+	unsigned char comm = 148;
+	unsigned char data[6];
+	I2C_write(0x12, &comm, 1);
+	vTaskDelay(5);
+	I2C_read(0x12, data, 6);
+
+	sat_vel->fields.x_velocity = data[1] << 8;
+	sat_vel->fields.x_velocity += data[0];
+	sat_vel->fields.y_velocity = data[3] << 8;
+	sat_vel->fields.y_velocity += data[2];
+	sat_vel->fields.z_velocity = data[5] << 8;
+	sat_vel->fields.z_velocity += data[4];
+
+	printf("x velocity: %d", sat_vel->fields.x_velocity);
+	printf(" y velocity: %d", sat_vel->fields.y_velocity);
+	printf(" z velocity: %d", sat_vel->fields.z_velocity);
 }

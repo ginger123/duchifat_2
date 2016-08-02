@@ -203,9 +203,9 @@ void ADC_Stage_3()
 	eslADCS_setEstimationMode(est_magnetometer_rate); //set the estimation mode
 	eslADCS_setAttitudeCtrlMode(modesetting);
 	eslADCS_setPwrCtrlDevice(Device_ctrl); //turn on motor power
-	eslADCS_deployMagnetometer(2); //first attempt entering what the value of the function to boom deploy
-	eslADCS_Magnetometer_Boom_Deployment_Enabled(&Magnetometer_Status);
-
+	//eslADCS_deployMagnetometer(2); //first attempt entering what the value of the function to boom deploy
+	//eslADCS_Magnetometer_Boom_Deployment_Enabled(&Magnetometer_Status);
+/*
 	if (Magnetometer_Status == FALSE)
 	{
 		eslADCS_deployMagnetometer(5);
@@ -217,10 +217,11 @@ void ADC_Stage_3()
 			eslADCS_Magnetometer_Boom_Deployment_Enabled(&Magnetometer_Status);
 		}
 	}
+	*/
 
 	 /*
 	  * set magnetometer configuration is not done!!!!!
-	  * adcsconf_magmeter_t conf_magmeter;
+	  * adcs conf_magmeter_t conf_magmeter;
 	  * eslADCS_setConfMagMeter
 	*/
 
@@ -264,8 +265,8 @@ void ADC_Stage_4()
 	eslADCS_setEstimationMode(est_magnetometer_rate);
 	eslADCS_setAttitudeCtrlMode(modesetting);
 	eslADCS_setPwrCtrlDevice(Device_ctrl);
-	vTaskDelay(5400000 / portTICK_RATE_MS); //dealy of 1 orbit
-
+	//vTaskDelay(5400000 / portTICK_RATE_MS); //dealy of 1 orbit
+	vTaskDelay(60000 / portTICK_RATE_MS); //delay of 1 minute
 	 /*
 		  * set magnetometer configuration is not done!!!!!
 		  * adcsconf_magmeter_t conf_magmeter;
@@ -285,7 +286,7 @@ void ADC_Stage_4()
 		commisioning_data.sensor_rates[0] = Sen_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.sensor_rates[1] = Sen_rates.fields.y_angrate;
 		commisioning_data.sensor_rates[2] = Sen_rates.fields.z_angrate;
-		//eslADCS_getRawMagnetometerMeas(&raw_mag); //filling the raw_mag with data
+		eslADCS_getRawMagnetometerMeas(&raw_mag); //filling the raw_mag with data
 		commisioning_data.RAW_Magnetometer[0] = raw_mag.fields.magnetic_x; //getting the data to the commisioning_data struct
 		commisioning_data.RAW_Magnetometer[1] = raw_mag.fields.magnetic_y;
 		commisioning_data.RAW_Magnetometer[2] = raw_mag.fields.magnetic_z;
@@ -330,7 +331,7 @@ void ADC_Stage_5()
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
 		commisioning_data.estimated_anglar_rates[2] = Ang_rates.fields.z_angrate;
-		//eslADCS_getEstimatedAttAngles(&att_angles);
+		eslADCS_getEstimatedAttAngles(&att_angles);
 		commisioning_data.estimated_attitude_angles[0] = att_angles.fields.pitch;
 		commisioning_data.estimated_attitude_angles[1] = att_angles.fields.roll;
 		commisioning_data.estimated_attitude_angles[2] = att_angles.fields.yaw;
@@ -342,11 +343,11 @@ void ADC_Stage_5()
 		commisioning_data.magnetic_field_vactor[0] = Mag_field.fields.x_magfield; //getting the data to the commisioning_data struct
 		commisioning_data.magnetic_field_vactor[1] = Mag_field.fields.y_magfield;
 		commisioning_data.magnetic_field_vactor[2] = Mag_field.fields.z_magfield;
-		//eslADCS_getSatellitePositionVec(&sat_pos); //filling the sat_pos with data
+		get_sat_llh_pos(&sat_pos); //filling the sat_pos with data
 		commisioning_data.sattelite_position[0] = sat_pos.fields.longitud; //getting the data to the commisioning_data struct
 		commisioning_data.sattelite_position[1] = sat_pos.fields.latitude;
 		commisioning_data.sattelite_position[2] = sat_pos.fields.altitude;
-		//eslADCS_getSatelliteVelocityVec(&sat_vel); //filling the sat_vel with data
+		eslADCS_getSatelliteVelocityVec(&sat_vel); //filling the sat_vel with data
 		commisioning_data.sattelite_velocity[0] = sat_vel.fields.x_velocity;
 		commisioning_data.sattelite_velocity[1] = sat_vel.fields.y_velocity;
 		commisioning_data.sattelite_velocity[2] = sat_vel.fields.z_velocity;
@@ -443,19 +444,19 @@ void ADC_Stage_7()
 	adcs_attangles_t att_angles;
 	adcs_angrate_t Sen_rates;
 	ADCS_comissioning_data commisioning_data;
-	adcs_unixtime_t unix_time;
+	//adcs_unixtime_t unix_time;
 	mode = est_full_state_ekf;
 	unsigned long t;
 
 	eslADCS_setStateADCS(state_enabled);
 	//eslADCS_getCurrentTime(&unix_time);
 	Time_getUnixEpoch(&t);
-	t = 1468080000;
 	ADCS_update_unix_time(t);
 	//eslADCS_setOrbitParam(); //need to complete
-	ADCS_update_tle((unsigned char*)&t);
+	//ADCS_update_tle((unsigned char*)&t);
+	// Delay ntil pitch angle between -10 and +10
 	//need to complete set estimation parameters
-	//adcs_set_estimation_param();
+	//adcs_set_estimation_param(); //ID 91
 	eslADCS_setPwrCtrlDevice(Device_ctrl);
 	eslADCS_setEstimationMode(mode);
 
@@ -466,7 +467,7 @@ void ADC_Stage_7()
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
 		commisioning_data.estimated_anglar_rates[2] = Ang_rates.fields.z_angrate;
-		//eslADCS_getEstimatedAttAngles(&att_angles);
+		eslADCS_getEstimatedAttAngles(&att_angles);
 		commisioning_data.estimated_attitude_angles[0] = att_angles.fields.pitch;
 		commisioning_data.estimated_attitude_angles[1] = att_angles.fields.roll;
 		commisioning_data.estimated_attitude_angles[2] = att_angles.fields.yaw;
@@ -481,7 +482,7 @@ void ADC_Stage_7()
 		commisioning_data.RAW_CSS[3] = raw_css.fields.css_4;
 		commisioning_data.RAW_CSS[4] = raw_css.fields.css_5;
 		commisioning_data.RAW_CSS[5] = raw_css.fields.css_6;
-		//eslADCS_getRawNadirSensor(&raw_nadir);
+		eslADCS_getRawNadirSensor(&raw_nadir);
 		commisioning_data.RAW_nadir_sensors[0] = raw_nadir.fields.nadir_centroid_x;
 		commisioning_data.RAW_nadir_sensors[1] = raw_nadir.fields.nadir_centroid_y;
 		commisioning_data.RAW_nadir_sensors[2] = raw_nadir.fields.nadir_busystatus;
@@ -563,24 +564,15 @@ void ADC_Stage_8()
 
 void task_adcs_commissioning()
 {
+	printf("entered to adcs thread\n");
 	f_enterFS();
 
-	adcs_calibration calibration;
+	//adcs_calibration calibration;
 	//printf("delay for 18 seconds\n");
 	adcs_reset(1);
 	adcs_reset(4);
-	//I2C_write(0x12,&reset_com);
 
-	//I2C_write(0x12,&reset,1);
-	//vTaskDelay(18000 / portTICK_RATE_MS);
-
-
-
-
-	//eslADCS_getCalibration(&calibration);
-	//print_calibration(&calibration);
-
-	adcs_stage = 7;
+	adcs_stage = 1;
 	while(1)
 	{
 		printf("enter stage %d\n",adcs_stage);
