@@ -194,6 +194,16 @@ void act_upon_comm(unsigned char* in)
 				}
 
 			}
+			if(decode.srvc_subtype==131)//delete function
+			{
+
+
+
+				unsigned long time_to_del = (decode.data[1]<<24) + (decode.data[2]<<16) + (decode.data[3]<<8) + (decode.data[4]);
+				unsigned char storid_to_del= decode.data[0];
+				//call function for deletion
+
+			}
 		break;
 		case (8):
 				printf("service type 8");
@@ -208,6 +218,11 @@ void act_upon_comm(unsigned char* in)
 					tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
 					Set_Mute(FALSE);//disable mute
 					printf("Command Disable Mute\n");
+				}
+				if(decode.srvc_subtype==133)//reset FTW
+				{
+					//change this to whatever reset sequence we need
+					gracefulReset();
 				}
 				if(decode.srvc_subtype==137)
 				{
@@ -240,6 +255,13 @@ void act_upon_comm(unsigned char* in)
 
 				// free memory
 				free(script_ptr);
+			}
+			if(decode.srvc_subtype==133)//delete script
+			{
+				unsigned char sc_num=decode.data[0];
+				unsigned char* cc = (unsigned char*) calloc(2000,sizeof(char));
+				FRAM_write(cc,scripts_adresses[sc_num],2000);
+				free(cc);
 			}
 		break;
 		case (131):
