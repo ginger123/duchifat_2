@@ -444,8 +444,12 @@ void ADC_Stage_7()
 	adcs_attangles_t att_angles;
 	adcs_angrate_t Sen_rates;
 	ADCS_comissioning_data commisioning_data;
+	adcs_sensor_masks_t sesnor_masks;
+	adcs_ctrlmodeset_t modesetting;
+	adcs_estmode_t mode = est_magnetometer_ratewithpitch;
+	adcs_estmode_t mode1 = est_full_state_ekf;
+	short pitch;
 	//adcs_unixtime_t unix_time;
-	mode = est_full_state_ekf;
 	unsigned long t;
 
 	eslADCS_setStateADCS(state_enabled);
@@ -454,11 +458,27 @@ void ADC_Stage_7()
 	ADCS_update_unix_time(t);
 	//eslADCS_setOrbitParam(); //need to complete
 	//ADCS_update_tle((unsigned char*)&t);
-	// Delay ntil pitch angle between -10 and +10
-	//need to complete set estimation parameters
-	//adcs_set_estimation_param(); //ID 91
-	eslADCS_setPwrCtrlDevice(Device_ctrl);
+	sesnor_masks.fields.mask_css = 1;
+	sesnor_masks.fields.mask_nadirsensor = 1;
+	sesnor_masks.fields.mask_sunsensor = 1;
+	adcs_set_estimation_param(sesnor_masks);
+
 	eslADCS_setEstimationMode(mode);
+
+	modesetting.fields.mode = 3;
+	modesetting.fields.timeout = 20;
+	eslADCS_setAttitudeCtrlMode(modesetting);
+
+	eslADCS_getEstimatedAttAngles(&att_angles);
+	pitch = 0.01*att_angles->fields.pitch;
+	while(pitch < -10 || pitch > 10)
+	{
+		vTaskDelay(1000 / portTICK_RATE_MS);
+		eslADCS_getEstimatedAttAngles(&att_angles);
+		pitch = 0.01*att_angles->fields.pitch;
+	}
+
+	eslADCS_setEstimationMode(mode1);
 
 	while (adcs_stage == 7)
 	{
