@@ -20,14 +20,19 @@
 #define TX_UPBOUND				30
 #define TIMEOUT_UPBOUND			10
 
-#define SIZE_RXFRAME	16
+#define SIZE_RXFRAME	200 // should be 63 but char doesn't go alone
 #define SIZE_TXFRAME	235
 
 #define SCRIPT_RAW_ADDR 0x10000
-#define BLOCK_SIZE 16
+#define BLOCK_SIZE 60
 
-#define BACON_TIME 3000
+#define ADC_COMM_SIZE 84//TBD
+#define ADC_SID 201
 
+#define BACON_TIME 20
+#define TC_COUNT_ADDR 0x100A
+#define FRAME_COUNT_ADDR 0x100B
+#define SSC_ADDR 0X100C
 typedef struct isisTXtlm
 {
     float tx_reflpwr; ///< Tx Telemetry reflected power.
@@ -62,4 +67,6 @@ Boolean check_ants_deployed();
 void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix);
 void enter_gs_mode(unsigned long *start_gs_time);
 void end_gs_mode();
+
+extern unsigned char dumpparam[11];
 #endif /* TRXVU_H_ */

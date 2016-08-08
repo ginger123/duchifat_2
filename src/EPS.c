@@ -1,64 +1,57 @@
 #include "main.h"
+#include "IsisTRXVU.h"
+
+unsigned char states;
+
 
 void EPS_Power_Conditioning(gom_eps_hk_t* EPS_Cur_TLM, unsigned short* Vbatt_Previous, gom_eps_channelstates_t* channels_state)
 {
-	unsigned char voltages[6];
-	FRAM_read(voltages, EPS_VOLTAGE_ADDR,6);
+	unsigned char voltages[EPS_VOLTAGE_SIZE];
+	FRAM_read(voltages, EPS_VOLTAGE_ADDR,EPS_VOLTAGE_SIZE);
 	if(EPS_Cur_TLM->fields.vbatt < *Vbatt_Previous) // in case of battery discharge
 	{
 		if(EPS_Cur_TLM->fields.vbatt < (int)voltages[0]*100 && channels_state->fields.channel3V3_1 == 1)
 		{
 			Safe(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Shuts down the ADCS actuators as well
+			states &= ~STATE_ADCS_ON_EPS;
+			GomEpsSetOutput(0, *channels_state); // Shuts down the ADCS actuators as well
 		}
-		else if(EPS_Cur_TLM->fields.vbatt < (int)voltages[1]*100 && channels_state->fields.channel5V_1 == 1)
+		else if(EPS_Cur_TLM->fields.vbatt < (int)voltages[1]*100)
 		{
 			Cruse(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Shuts down the transmitter as well
+			states |= STATE_MUTE_EPS;
+			GomEpsSetOutput(0, *channels_state); // Shuts down the transmitter as well
 
 		}
-		else if(EPS_Cur_TLM->fields.vbatt < (int)voltages[2]*100 && channels_state->fields.channel5V_3 == 1)
+		else if(EPS_Cur_TLM->fields.vbatt < (int)voltages[2]*100)
 		{
 			Cruse(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Shuts down the payload
+			states &= ~STATE_MNLP_ON_EPS;
+			GomEpsSetOutput(0, *channels_state); // Shuts down the payload
 		}
 	}
-	else
+	else if(EPS_Cur_TLM->fields.vbatt > *Vbatt_Previous)
 	{
-		if(EPS_Cur_TLM->fields.vbatt > (int)voltages[3]*100 && channels_state->fields.channel5V_3 == 0)
+		if(EPS_Cur_TLM->fields.vbatt > (int)voltages[3]*100)
 		{
 			Cruse(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Activates the payload as well
+			states |= STATE_MNLP_ON_EPS;
+			GomEpsSetOutput(0, *channels_state); // Activates the payload as well
 		}
-		else if(EPS_Cur_TLM->fields.vbatt > (int)voltages[4]*100 && channels_state->fields.channel5V_1 == 0)
+		else if(EPS_Cur_TLM->fields.vbatt > (int)voltages[4]*100)
 		{
 			Cruse(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Activates the tranciever as well
+			states &= ~STATE_MUTE_EPS;
+			GomEpsSetOutput(0, *channels_state); // Activates the tranciever as well
 		}
 		else if(EPS_Cur_TLM->fields.vbatt > (int)voltages[5]*100 && channels_state->fields.channel3V3_1 == 0)
 		{
 			Cruse(channels_state);
-			//GomEpsSetOutput(EPS_address, channels_state); // Activates the ADCS actuators
+			states |= STATE_ADCS_ON_EPS;
+			GomEpsSetOutput(0, *channels_state); // Activates the ADCS actuators
 		}
 	}
 	*Vbatt_Previous = EPS_Cur_TLM->fields.vbatt;
-	/*if((EPS_Cur_TLM->fields.curout[0] > 500 || EPS_Cur_TLM->fields.curout[1] > 500 || EPS_Cur_TLM->fields.curout[2] > 500 || EPS_Cur_TLM->fields.curout[3] > 500 || EPS_Cur_TLM->fields.curout[4] > 500 || EPS_Cur_TLM->fields.curout[5] > 500) && (COMPONENT_On_Off&Over_Current_bit) == 0)
-	{
-		COMPONENT_On_Off = COMPONENT_On_Off | (Over_Current_bit); //Over current state
-	}
-	else if((COMPONENT_On_Off & Over_Current_bit) == Over_Current_bit)
-	{
-		COMPONENT_On_Off = COMPONENT_On_Off & (No_Over_Current); // Leaving over current state
-	}
-
-	if((EPS_Cur_TLM->fields.temp[0]> 69 || EPS_Cur_TLM->fields.temp[1]> 69 || EPS_Cur_TLM->fields.temp[2]> 69 || EPS_Cur_TLM->fields.temp[3]> 69 || EPS_Cur_TLM->fields.temp[4]>69 ||EPS_Cur_TLM->fields.temp[5]> 69) && (COMPONENT_On_Off&Over_Heat_bit) == 0)
-	{
-		COMPONENT_On_Off = COMPONENT_On_Off | (Over_Heat_bit);
-	}
-	else if((COMPONENT_On_Off & Over_Heat_bit) == Over_Heat_bit)
-	{
-		COMPONENT_On_Off = COMPONENT_On_Off & (No_Over_Heat);
-	}*/
 }
 
 
@@ -66,32 +59,61 @@ void EPS_Power_Conditioning(gom_eps_hk_t* EPS_Cur_TLM, unsigned short* Vbatt_Pre
 void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state, unsigned short* vbatt_previous)
 {
 	unsigned char EPS_addr = EPS_address;
+	eps_config_t eps_config;
 	GomEpsInitialize(&EPS_addr, 1);
-	GomEpsGetHkData_general(EPS_address, EPS_Cur_TLM);
-	unsigned char voltages[6];
-	FRAM_read(voltages, EPS_VOLTAGE_ADDR,6);
+	GomEpsGetHkData_general(0, EPS_Cur_TLM);
+	unsigned char voltages[EPS_VOLTAGE_SIZE];
+	FRAM_read(voltages, EPS_VOLTAGE_ADDR,EPS_VOLTAGE_SIZE);
 
 	if(EPS_Cur_TLM->fields.vbatt < voltages[0]*100)
 	{
 		Safe(channels_state);
-		GomEpsSetOutput(EPS_address, *channels_state); // Shuts down the ADCS actuators as well
+		GomEpsSetOutput(0, *channels_state); // Shuts down the ADCS actuators as well
+		states &= ~(STATE_ADCS_ON_EPS + STATE_MNLP_ON_EPS);
+		states |= STATE_MUTE_EPS;
 	}
 	else if(EPS_Cur_TLM->fields.vbatt < voltages[1]*100)
 	{
+		printf("ADCS ON\n");
 		Cruse(channels_state);
-		GomEpsSetOutput(EPS_address, *channels_state); // Shuts down the transmitter as well
+		GomEpsSetOutput(0, *channels_state); // Shuts down the transmitter as well
+		states &= ~(STATE_MNLP_ON_EPS);
+		states |= STATE_ADCS_ON_EPS + STATE_MUTE_EPS;
 	}
 	else if(EPS_Cur_TLM->fields.vbatt < voltages[2]*100)
 	{
+		printf("ADCS ON\n");
 		Cruse(channels_state);
-		GomEpsSetOutput(EPS_address, *channels_state); // Shuts down the payload
+		GomEpsSetOutput(0, *channels_state); // Shuts down the payload
+		states &= ~STATE_MNLP_ON_EPS;
+		states |= STATE_ADCS_ON_EPS;
+		states &= ~STATE_MUTE_EPS;
 	}
 	else
 	{
+		printf("ADCS ON\n");
 		Cruse(channels_state);
-		GomEpsSetOutput(EPS_address, *channels_state); // everything is on
+		GomEpsSetOutput(0, *channels_state); // everything is on
+		states |= STATE_ADCS_ON_EPS + STATE_MNLP_ON_EPS;
+		states &= ~STATE_MUTE_EPS;
 	}
 	*vbatt_previous = EPS_Cur_TLM->fields.vbatt;
+
+	if (0)
+	{
+	GomEpsConfigGet(0, &eps_config);
+	//printf("\n\n\nHeater low is: %d\n",eps_config.fields.battheater_low);
+	printf("Heater high is: %d\n",eps_config.fields.battheater_high);
+	printf("mode is: %d\n\n\n",eps_config.fields.battheater_mode);
+	eps_config.fields.battheater_low = 0;
+	eps_config.fields.battheater_high = 10;
+	eps_config.fields.battheater_mode = 1;
+	GomEpsConfigSet(0,&eps_config);
+	GomEpsConfigGet(0, &eps_config);
+	printf("\n\n\nHeater low is: %d\n",eps_config.fields.battheater_low);
+	printf("Heater high is: %d\n",eps_config.fields.battheater_high);
+	printf("mode is: %d\n\n\n",eps_config.fields.battheater_mode);
+	}
 }
 
 void Cruse(gom_eps_channelstates_t* channels_state)
@@ -118,93 +140,94 @@ void Safe(gom_eps_channelstates_t* channels_state)
 	channels_state->fields.channel5V_3 = 0;
 }
 
-void Write_F_EPS_TLM(gom_eps_hk_t* EPS_CUR_TLM)
+void print_general_hk_packet(HK_Struct Packet)
 {
-	char eps_tlm[EPS_TLM_SIZE];
-	eps_tlm[0] = EPS_CUR_TLM->fields.vbatt/256;
-	eps_tlm[1] = EPS_CUR_TLM->fields.vbatt%256;
-	eps_tlm[2] = EPS_CUR_TLM->fields.vboost[0]/256;
-	eps_tlm[3] = EPS_CUR_TLM->fields.vboost[0]%256;
-	eps_tlm[4] = EPS_CUR_TLM->fields.vboost[1]/256;
-	eps_tlm[5] = EPS_CUR_TLM->fields.vboost[1]%256;
-	eps_tlm[6] = EPS_CUR_TLM->fields.vboost[2]/256;
-	eps_tlm[7] = EPS_CUR_TLM->fields.vboost[2]%256;
-	eps_tlm[8] = EPS_CUR_TLM->fields.curin[0]/256;
-	eps_tlm[9] = EPS_CUR_TLM->fields.curin[0]%256;
-	eps_tlm[10] = EPS_CUR_TLM->fields.curin[1]/256;
-	eps_tlm[11] = EPS_CUR_TLM->fields.curin[1]%256;
-	eps_tlm[12] = EPS_CUR_TLM->fields.curin[2]/256;
-	eps_tlm[13] = EPS_CUR_TLM->fields.curin[2]%256;
-	eps_tlm[14] = EPS_CUR_TLM->fields.curout[0]/256;
-	eps_tlm[15] = EPS_CUR_TLM->fields.curout[0]%256;
-	eps_tlm[16] = EPS_CUR_TLM->fields.curout[1]/256;
-	eps_tlm[17] = EPS_CUR_TLM->fields.curout[1]%256;
-	eps_tlm[18] = EPS_CUR_TLM->fields.curout[2]/256;
-	eps_tlm[19] = EPS_CUR_TLM->fields.curout[2]%256;
-	eps_tlm[20] = EPS_CUR_TLM->fields.curout[3]/256;
-	eps_tlm[21] = EPS_CUR_TLM->fields.curout[3]%256;
-	eps_tlm[22] = EPS_CUR_TLM->fields.curout[4]/256;
-	eps_tlm[23] = EPS_CUR_TLM->fields.curout[4]%256;
-	eps_tlm[24] = EPS_CUR_TLM->fields.curout[5]/256;
-	eps_tlm[25] = EPS_CUR_TLM->fields.curout[5]%256;
-	eps_tlm[26] = (EPS_CUR_TLM->fields.temp[0]+60)/256;  // temperatures will be + 60 deg c
-	eps_tlm[27] = (EPS_CUR_TLM->fields.temp[1]+60)/256;
-	eps_tlm[29] = (EPS_CUR_TLM->fields.temp[1]+60)%256 ;
-	eps_tlm[30] = (EPS_CUR_TLM->fields.temp[2]+60)/256;
-	eps_tlm[31] = (EPS_CUR_TLM->fields.temp[2]+60)%256 ;
-	eps_tlm[32] = (EPS_CUR_TLM->fields.temp[3]+60)/256;
-	eps_tlm[33] = (EPS_CUR_TLM->fields.temp[3]+60)%256 ;
-	eps_tlm[34] = (EPS_CUR_TLM->fields.temp[4]+60)/256;
-	eps_tlm[35] = (EPS_CUR_TLM->fields.temp[4]+60)%256 ;
-	eps_tlm[36] = (EPS_CUR_TLM->fields.temp[5]+60)/256;
-	eps_tlm[37] = (EPS_CUR_TLM->fields.temp[5]+60)%256;
-	eps_tlm[38] = EPS_CUR_TLM->fields.cursys/256;
-	eps_tlm[39] = EPS_CUR_TLM->fields.cursys%256;
-	eps_tlm[40] = EPS_CUR_TLM->fields.cursun/256;
-	eps_tlm[41] = EPS_CUR_TLM->fields.cursun%256;
-	char EPS_File[] ={"EPSFILE"};
-	FileWrite(EPS_File, 0, eps_tlm, EPS_TLM_SIZE);
+	// print all values
+	printf("battery voltage %d\n mV",Packet.HK_vbatt);
+	printf("Boost converters: %d,%d,%d mV\n", Packet.HK_vboost[0],Packet.HK_vboost[1],Packet.HK_vboost[2]);
+	printf("Currents: %d,%d,%d mA\n", Packet.HK_curin[0],Packet.HK_curin[1],Packet.HK_curin[2]);
+	printf("temperature %d, %d, %d, %d, %d, %d C\n",Packet.HK_temp[0],Packet.HK_temp[1],Packet.HK_temp[2],Packet.HK_temp[3],Packet.HK_temp[4],Packet.HK_temp[5]);
+	printf("current out of battery %d mA\n",Packet.HK_cursys);
+	printf("current sun sensor %d mA\n",Packet.HK_cursun);
+	printf("states %x mA\n",Packet.HK_states);
+
+	// receiver
+	printf("doppler offset %f kHz\n",Packet.HK_rx_doppler*13.352-22300);
+	printf("RSSI %f dBm\n",Packet.HK_rx_rssi*0.03-152);
+	printf("Bus voltage %f V\n",Packet.HK_rx_bus_volt*0.00488);
+	printf("local oscilator temp %f C\n",Packet.HK_rx_lo_temp*-0.0546+189.5522);
+	printf("Rx up time %d days %d  hours %dminutes %d seconds\n", Packet.HK_rx_uptime[3],Packet.HK_rx_uptime[2],Packet.HK_rx_uptime[1],Packet.HK_rx_uptime[0]);
+	printf("Rx suppply current %f mA\n",Packet.HK_rx_supply_curr*0.0305);
+
+	// transceiver
+	printf("Power amp temp %f C\n",Packet.HK_tx_pa_temp*-0.0546+189.5522);
+	printf("Tx up time %d days %d  hours %dminutes %d seconds\n", Packet.HK_rx_uptime[3],Packet.HK_rx_uptime[2],Packet.HK_rx_uptime[1],Packet.HK_tx_uptime[0]);
+	printf("Tx suppply current %f mA\n",Packet.HK_tx_supply_curr*0.0305);
+
+	//antennas
+	printf("antennas temp: %f C\n",(Packet.HK_ants_temperature * -0.2922) + 190.65);
+	printf("antennas deployment status %x\n",Packet.ant);
 }
-
-void HK_packet_build_save(HK_Struct* Packet, gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX){
-
+void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm)
+{
+	HK_Struct Packet;
 	char sd_file_name[] = {"HK_packets"};
-	Packet->sid=166;
+	int end_offset = 2;
+	int size = HK_SIZE;
+
+	Packet.sid= EPS_SID;
 	//EPS PARAM START
-	Packet->HK_vbatt = tlm.fields.vbatt;
-	Packet->HK_vboost[0] = tlm.fields.vboost[0];
-	Packet->HK_vboost[1] = tlm.fields.vboost[1];
-	Packet->HK_vboost[2] = tlm.fields.vboost[2];
-	Packet->HK_curin[0] = tlm.fields.curin[0];
-	Packet->HK_curin[1] = tlm.fields.curin[1];
-	Packet->HK_curin[2] = tlm.fields.curin[2];
-	Packet->HK_temp[0] = tlm.fields.temp[0];
-	Packet->HK_temp[1] = tlm.fields.temp[1];
-	Packet->HK_temp[2] = tlm.fields.temp[2];
-	Packet->HK_temp[3] = tlm.fields.temp[3];
-	Packet->HK_temp[4] = tlm.fields.temp[4];
-	Packet->HK_temp[5] = tlm.fields.temp[5];
-	Packet->HK_cursys = tlm.fields.cursys;
-	Packet->HK_cursun = tlm.fields.cursun;
-	Packet->HK_states = states;
+	Packet.HK_vbatt = tlm.fields.vbatt;
+	Packet.HK_vboost[0] = tlm.fields.vboost[0];
+	Packet.HK_vboost[1] = tlm.fields.vboost[1];
+	Packet.HK_vboost[2] = tlm.fields.vboost[2];
+	Packet.HK_curin[0] = tlm.fields.curin[0];
+	Packet.HK_curin[1] = tlm.fields.curin[1];
+	Packet.HK_curin[2] = tlm.fields.curin[2];
+	Packet.HK_temp[0] = tlm.fields.temp[0];
+	Packet.HK_temp[1] = tlm.fields.temp[1];
+	Packet.HK_temp[2] = tlm.fields.temp[2];
+	Packet.HK_temp[3] = tlm.fields.temp[3];
+	Packet.HK_temp[4] = tlm.fields.temp[4];
+	Packet.HK_temp[5] = tlm.fields.temp[5];
+	Packet.HK_cursys = tlm.fields.cursys;
+	Packet.HK_cursun = tlm.fields.cursun;
+	Packet.HK_states = states;
 	//EPS PARAM END
 
 				//COMM START
 	//RX
-	Packet->HK_rx_doppler = tlmRX.fields.rx_doppler;
-	Packet->HK_rx_rssi = tlmRX.fields.rx_rssi;
-	Packet->HK_rx_bus_volt = tlmRX.fields.bus_volt;
-	Packet->HK_rx_lo_temp = tlmRX.fields.board_temp;
-	Packet->HK_rx_supply_curr = tlmRX.fields.rx_current;
-	IsisTrxvu_rcGetUptime(0,Packet->HK_rx_uptime);
+	Packet.HK_rx_doppler = tlmRX.fields.rx_doppler;
+	Packet.HK_rx_rssi = tlmRX.fields.rx_rssi;
+	Packet.HK_rx_bus_volt = tlmRX.fields.bus_volt;
+	Packet.HK_rx_lo_temp = tlmRX.fields.board_temp;
+	Packet.HK_rx_supply_curr = tlmRX.fields.rx_current;
+	IsisTrxvu_rcGetUptime(0,Packet.HK_rx_uptime);
 
 	//TX
-	Packet->HK_tx_pa_temp = tlmTX.fields.pa_temp;
-	Packet->HK_tx_supply_curr = tlmTX.fields.tx_current;
-	Packet->HK_tx_power_fwd_dbm = tlmTX.fields.tx_reflpwr;
-	Packet->HK_tx_power_refl_dbm = tlmTX.fields.tx_fwrdpwr;
-	IsisTrxvu_tcGetUptime(0,Packet->HK_tx_uptime);
-				//COMM END
-	FileWrite(sd_file_name, 0,(char *)Packet,sizeof(HK_Struct));
-}
+	Packet.HK_tx_pa_temp = tlmTX.fields.pa_temp;
+	Packet.HK_tx_supply_curr = tlmTX.fields.tx_current;
+	Packet.HK_tx_power_fwd_dbm = tlmTX.fields.tx_reflpwr;
+	Packet.HK_tx_power_refl_dbm = tlmTX.fields.tx_fwrdpwr;
+	IsisTrxvu_tcGetUptime(0,Packet.HK_tx_uptime);
 
+	//Antena
+	Packet.HK_ants_temperature = antstlm.fields.ants_temperature;
+	Packet.ant = antstlm.fields.ants_deployment.raw[1]*256 + antstlm.fields.ants_deployment.raw[0];
+				//COMM END
+	WritewithEpochtime(sd_file_name, 0,(char *)&Packet,sizeof(HK_Struct));
+
+	// send packet
+	ccsds_packet ccs_packet;
+	ccs_packet.apid=10;
+	ccs_packet.srvc_type = 3;
+	ccs_packet.srvc_subtype = 25;
+	update_time(ccs_packet.c_time);
+	ccs_packet.len = sizeof(HK_Struct);
+	ccs_packet.data = (unsigned char*)&Packet;
+
+	//print_general_hk_packet(Packet);
+
+	switch_endian(ccs_packet.data + end_offset, size - end_offset);
+	send_SCS_pct(ccs_packet);
+}

@@ -11,7 +11,7 @@
 unsigned int ssc[HIGHEST_APID+1];//to keep track of ssc for each apid
 unsigned char frame_count;
 
-
+unsigned char is_sending=0;
 
 
 unsigned int Crc(unsigned char Data, unsigned short Syndrome)
@@ -47,6 +47,9 @@ short calc_crc( unsigned char* indata, int len )
 
 int send_SCS_pct(ccsds_packet pct_dat)
 {
+	while(is_sending==1) vTaskDelay(100);
+	is_sending=1;
+
 	// to review format of the below editing reference SCS documentation under ccsds telemetry packet
 	int retval=0;
 	unsigned char* ret;
@@ -98,6 +101,7 @@ int send_SCS_pct(ccsds_packet pct_dat)
 	ssc[pct_dat.apid]++;
 	FRAM_write(ssc,SSC_ADDR,(HIGHEST_APID+1)*4);
 	free(ret);
+	is_sending=0;
 	return retval;
 }
 
@@ -181,13 +185,13 @@ void parse_comm(rcvd_packet *pct, unsigned char in[])
 	{
 		printf("checksum of packet failed. aborting command\n");
 		pct->isvalidcrc=FALSE;
-		//tc_verification_report(*pct,TC_ACCEPT_SERVICE_FAILURE,ERR_INCORRECT_CHKSM);
-		//return;
+		tc_verification_report(*pct,TC_ACCEPT_SERVICE_FAILURE,ERR_INCORRECT_CHKSM,in);
+		return;
 
 	}
 		//by this point the packet has been accepted so sending acceptance report:
 	printf("command accepted\n");
-	//tc_verification_report(*pct,TC_ACCEPT_SERVICE_SUCCESS,NO_ERR,in);
+	tc_verification_report(*pct,TC_ACCEPT_SERVICE_SUCCESS,NO_ERR,in);
 }
 
 void tc_verification_report(rcvd_packet decode,unsigned char type,unsigned int clause, unsigned char in[])

@@ -13,12 +13,14 @@ void WritewithEpochtime(char Filename[], Boolean Ifsafe, char Data[], int _BUFF_
 
 void FileRead(char Filename[],char ToWrite[], int _BUFF_SIZE);
 
-void delete_packets_from_file(char Filename[], int ToDel[],int line_size);
+void delete_packets_from_file(int file_idx, unsigned long t);
 
-int AiAaD_Fulltest();
+int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,unsigned long time_b,int *start_idx);
 
-int AllinAll();
+void FileReadIndex(char Filename[],char ToWrite[], int _BUFF_SIZE, int index);
 
-int AllinAll_b();
+void print_file(char filename[],int linesize);
+
+void AllinAll();
 
 #endif

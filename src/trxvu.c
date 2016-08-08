@@ -1,15 +1,18 @@
 /*
  * trxvu.c
-
  *
  *  Created on: 10 ???? 2016
  *      Author: Ariel
  */
 
 #include "main.h"
-
+#include "EPS.h"
+#include "mnlp.h"
 unsigned char tc_count;
-unsigned char dumpparam[2];
+unsigned char dumpparam[11];
+unsigned int dump_completed = 0;
+unsigned int dump_created = 0;
+xTaskHandle taskDumpHandle;
 
 void update_wod(gom_eps_hk_t EpsTelemetry_hk)
 {
@@ -141,6 +144,7 @@ void vurc_getRxTelemTest(isisRXtlm *converted)
 int TRX_sendFrame(unsigned char* data, unsigned char length)
 {
 	unsigned char avalFrames=0;
+
 	IsisTrxvu_tcSendAX25DefClSign(0, data, length, &avalFrames);
 	if(avalFrames==0) return -1;
 	availableFrames=avalFrames;
@@ -152,7 +156,6 @@ void act_upon_comm(unsigned char* in)
 {
 
 	unsigned int i=0;
-	unsigned int script_len;
 	FRAM_read(&tc_count,TC_COUNT_ADDR,1);
 	in++;
 	rcvd_packet decode;
@@ -173,16 +176,35 @@ void act_upon_comm(unsigned char* in)
 	switch(decode.srvc_type)
 	{
 		case (3):
-			if(decode.srvc_subtype==131)//dump
+			if(decode.srvc_subtype==125)//dump
 			{
-				//tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
-				xTaskHandle taskDumpHandle;
+				tc_verification_report(decode,TC_EXEC_START_SUCCESS,NO_ERR,in);
+
 				//dump(decode.data[0],decode.data[1]);
-				dumpparam[0] = decode.data[0];
-				dumpparam[1] = decode.data[1];
-				printf("Command Dump params %x %x\n",dumpparam[0],dumpparam[1]);
-				xTaskGenericCreate(dump, (const signed char*)"taskDump", 1024, (void *)&dumpparam[0], configMAX_PRIORITIES-2, &taskDumpHandle, NULL, NULL);
-				vTaskDelay(5000 / portTICK_RATE_MS);
+				int i = 0;
+				for(;i<11;i++)
+				{
+					dumpparam[i] = decode.data[i];
+				}
+				if (dump_created==0)
+				{
+					xTaskGenericCreate(dump, (const signed char*)"taskDump", 1024, (void *)&dumpparam[0], configMAX_PRIORITIES-2, &taskDumpHandle, NULL, NULL);
+					dump_created=1;
+				}
+
+			}
+			if(decode.srvc_subtype==132)//delete packets function
+			{
+
+
+
+				unsigned long time_to_del = (decode.data[1]<<24) + (decode.data[2]<<16) + (decode.data[3]<<8) + (decode.data[4]);
+				unsigned int storid_to_del= (int)decode.data[0];
+				print_file("HK_packets",HK_SIZE+5);
+				delete_packets_from_file(storid_to_del, time_to_del);
+				print_file("HK_packets",HK_SIZE+5);
+				//call function for deletion
+
 
 			}
 		break;
@@ -200,6 +222,11 @@ void act_upon_comm(unsigned char* in)
 					Set_Mute(FALSE);//disable mute
 					printf("Command Disable Mute\n");
 				}
+				if(decode.srvc_subtype==134)//reset FTW
+				{
+					//change this to whatever reset sequence we need
+					gracefulReset();
+				}
 				if(decode.srvc_subtype==137)
 				{
 					adcs_stage=decode.data[0];
@@ -209,23 +236,40 @@ void act_upon_comm(unsigned char* in)
 		case (130):
 			if(decode.srvc_subtype==131)//upload subpacket
 			{
-				FRAM_write(decode.data+1,SCRIPT_RAW_ADDR+BLOCK_SIZE*decode.data[0],BLOCK_SIZE);
+				printf("save segment %d",decode.data[0]);
+				FRAM_write(decode.data+1,SCRIPT_RAW_ADDR+BLOCK_SIZE*decode.data[0],decode.len-1);
 			}
 			if(decode.srvc_subtype==132)//upload last frame
 			{
-				printf("received full script\n");
-				unsigned char printscript[500];
-				FRAM_write(decode.data,SCRIPT_RAW_ADDR-1,1);//save script number
-				FRAM_write(decode.data+1,SCRIPT_RAW_ADDR-3,2);//save script size
-				script_len=decode.data[1]*256+decode.data[2];
+				// read length and script
+				short len;
+				unsigned char *script_ptr;
+				FRAM_read((unsigned char *)&len, SCRIPT_RAW_ADDR, 2);
+				script_ptr = (unsigned char *)calloc(len,sizeof(char));
+				FRAM_read(script_ptr, SCRIPT_RAW_ADDR, len);
 
-				FRAM_read(printscript,SCRIPT_RAW_ADDR,script_len);
-				for(i=0;i<script_len;i++)
-				{
-					printf("%x ", printscript[i]);
-				}
-				printf("\n");
-				//invoke function here
+				// check CRC
+				if(Fletcher16(script_ptr,len)) printf("bad script");
+
+				printf("received full script\n printing it now\n");
+				print_array(script_ptr,len);				// write to appropriate address
+
+				FRAM_write(script_ptr,scripts_adresses[decode.data[0]],len);//save script numbe
+
+				// free memory
+				free(script_ptr);
+			}
+			if(decode.srvc_subtype==133)//delete script
+			{
+				unsigned char sc_num=decode.data[0];
+				unsigned char* cc = (unsigned char*) calloc(200,sizeof(char));
+				memset(cc,0xFF,200);
+				FRAM_write(cc,scripts_adresses[sc_num],200);
+
+				FRAM_read(cc,scripts_adresses[sc_num],200);
+				print_array(cc,200);
+				free(cc);
+
 			}
 		break;
 		case (131):
@@ -242,8 +286,18 @@ void act_upon_comm(unsigned char* in)
 				t=t<<8;
 				t+=decode.data[3];
 				printf("\nunix time is: %ld\n",t);
-				Time_setUnixEpoch(t);
 
+				int j;
+				for(j=0;j<THREAD_TIMESTAMP_LEN;j++)
+				{
+					timestamp[j]=t;
+				}
+				Time_setUnixEpoch(t);
+				ADCS_update_unix_time(t);
+			}
+			if(decode.srvc_subtype==2)
+			{
+				ADCS_update_tle(decode.data);
 			}
 			if(decode.srvc_subtype==4)
 			{
@@ -257,7 +311,7 @@ void act_upon_comm(unsigned char* in)
 				send_SCS_pct(response);
 				printf("Command report Time\n");
 			}
-			if(decode.srvc_type == 3)
+			if(decode.srvc_subtype == 3)
 			{
 				unsigned char n_voltages[EPS_VOLTAGE_SIZE];
 				int i = 0;
@@ -266,6 +320,11 @@ void act_upon_comm(unsigned char* in)
 					n_voltages[i] = decode.data[i];
 				}
 				FRAM_write(n_voltages, EPS_VOLTAGE_ADDR, EPS_VOLTAGE_SIZE);
+				vTaskDelay(1);
+				unsigned char voltages[EPS_VOLTAGE_SIZE];
+				FRAM_read(voltages,EPS_VOLTAGE_ADDR, EPS_VOLTAGE_SIZE);
+				print_array(n_voltages,6);
+				print_array(voltages,6);
 			}
 		break;
 		default:
@@ -276,10 +335,11 @@ void act_upon_comm(unsigned char* in)
 		return;
 	}
 
-	//tc_verification_report(decode,TC_EXEC_COMPLETE_SUCCESS,NO_ERR,in);
+	tc_verification_report(decode,TC_EXEC_COMPLETE_SUCCESS,NO_ERR,in);
 	free(decode.data);
 	tc_count++;
 	FRAM_write(&tc_count,TC_COUNT_ADDR,1);
+	printf("exited act upon command\n");
 }
 
 void dump(void *arg)
@@ -288,60 +348,114 @@ void dump(void *arg)
 	ret = f_enterFS(); /* Register this task with filesystem */
 	ASSERT( (ret == F_NO_ERROR ), "f_enterFS pb: %d\n\r", ret);
 
-	while (1)
-	{
-		vTaskDelay(2000 / portTICK_RATE_MS);
-		AllinAll();
-	}
+	//dump_created = 1;
 
-	if(!Get_Mute())
+	if(!Get_Mute() && !(states & STATE_MUTE_EPS))
 	{
-		unsigned char type;unsigned char am;
+		unsigned char type = 0;unsigned long start_time = 0; unsigned long final_time = 0;
 		unsigned char* argument = (unsigned char*)arg;
 		printf("entered dump\n");
+		start_time = convert_epoctime((char *)&argument[1]);
+		final_time=convert_epoctime((char *)(&argument[6]));
 		type=argument[0];
-		am=argument[1];
-		printf("type is:%d amount is: %d\n",type,am);
-		int todel[1]={0};
-		char eps_file[] = {"EPSFILE"};//{'E','P','S','F','I','L','E'};
+		printf("type is %d, start time is %lu end time is %lu\n",type,start_time,final_time);
+		if(start_time>final_time)
+		{
+			dump_completed = 1;
+			printf("SumTing Iz FckeD Up\n");
+			while(1)
+			{
+				vTaskDelay(5000);
+			}
+		}
+		char HK_packets[] = {"HK_packets"};
+		char ADC_comm[] = {"adcs_file"};
+		char ADC_tlm[] = {"adcs_tlm_file"};
+		char mnlp_file[] ={"mnlp"};
+
 		char *file;
+		unsigned char *temp_data;
 		int size=0;
 		int i=0;
+		int start_idx = 0;
+		int num_packets = 0;
+		unsigned long t_l;
 		ccsds_packet pct;
+		int end_offest;
+
 
 		pct.srvc_type=3;
 		pct.srvc_subtype=25;
-		type=1;
-		if(type==1)//dumping eps
+
+		switch (type)
 		{
-			pct.len=EPS_TLM_SIZE+1;
-			pct.apid=10;
-			pct.data=(unsigned char*)calloc(EPS_TLM_SIZE+1,sizeof(char));
-			pct.data[0]=0x05;
-			file=eps_file;
-			size=EPS_TLM_SIZE;
-			printf("dump eps\n");
-			// filename
+			case 1://dumping HK packet packet
+				file=HK_packets;
+				size=HK_SIZE;
+				printf("dump HK\n");
+				end_offest = 2;
+				break;
+			case 2://dumping adcs commisionning
+				file= ADC_comm;
+				size= ADC_COMM_SIZE;
+				printf("dump adc commisioning\n");
+				break;
+			case 3:
+				file=ADC_tlm;
+				end_offest = 12;
+				size = sizeof(ADCS_telemetry_data);
+				printf("dump adc_tlm\n");
+				break;
+			case 4:
+				pct.srvc_type=130;
+				pct.srvc_subtype=1;
+				file = mnlp_file;
+				end_offest = sizeof(ADCS_Payload_Telemetry)+MNLP_DATA_SIZE;
+				size = sizeof(ADCS_Payload_Telemetry)+MNLP_DATA_SIZE;
+				printf("dump mnlp");
+				break;
+			default:
+				return;
+				break;
 		}
-		else if(type==0x02)
+
+		pct.len=size;//updates data based on the type of the packet
+		pct.apid=10;
+		temp_data = (unsigned char*)calloc(size+5,sizeof(char));
+
+		num_packets = find_number_of_packets(file,size+5,start_time,final_time,&start_idx);
+
+		printf("sending %d packets\n",num_packets);
+
+		for(i=0;i<num_packets;i++)//sending packets
 		{
-		}
-		else if(type==0x03)
-		{
-		}
-		for(;i<am;i++)
-		{
-			printf("sent packet %d\n",i);
-			FileRead(eps_file ,(char *)pct.data+1, size);
+			printf("loop counter %d\n",i);
+			FileReadIndex(file, (char *)temp_data,size+5,start_idx+i);
+			print_array(temp_data,size+5);
+			// convert time to epoch time
+			t_l = convert_epoctime((char *) temp_data);
+			t_l = t_l -30*365*24*3600-24*3600*7;
+			convert_time_array(t_l, pct.c_time);
+
+			pct.data = temp_data+5;
+
+			switch_endian(pct.data + end_offest, size - end_offest);
+
 			//delete_packets_from_file(file, todel,size);
-			update_time(pct.c_time);
 			send_SCS_pct(pct);
 
-			vTaskDelay(500 / portTICK_RATE_MS);
+			printf("sent packet %d\n",i);
 		}
 
-		free(pct.data);
+		free(temp_data);
+
 	}
+	dump_completed = 1;
+	while (1)
+	{
+		vTaskDelay(500 / portTICK_RATE_MS);
+	}
+
 }
 
 
@@ -350,11 +464,11 @@ void enter_gs_mode(unsigned long *start_gs_time)
 {
 	printf("enter ground station mode");
 	// Enter ground station mode
-	states = states | STATE_GS;
+	states |= STATE_GS;
 
 	//Disable Mnlp
-	glb_channels_state.fields.channel3V3_2 = 0;
-	glb_channels_state.fields.channel5V_2 = 0;
+	//glb_channels_state.fields.channel3V3_2 = 0;
+	//glb_channels_state.fields.channel5V_2 = 0;
 	//GomEpsSetOutput(0, glb_channels_state);
 
 	//Sets the initial time of the pass
@@ -364,11 +478,11 @@ void enter_gs_mode(unsigned long *start_gs_time)
 void end_gs_mode()
 {
 	printf("exit ground station mode");
-	//Exit grout station mode
-	states = states & !(STATE_GS);
+	//Exit ground station mode
+	states &= ~STATE_GS;
 	//initialize Mnlp
-	glb_channels_state.fields.channel3V3_2 = 1;
-	glb_channels_state.fields.channel5V_2 = 1;
+	//glb_channels_state.fields.channel3V3_2 = 1;
+	//glb_channels_state.fields.channel5V_2 = 1;
 	//GomEpsSetOutput(0, glb_channels_state);
 }
 
@@ -376,7 +490,6 @@ Boolean check_ants_deployed()// NOT WORKING CAUSE ISIS CODE
 {
 	/*ISISantsSide side = isisants_sideA;
 	ISISantsStatus ants_stat;
-
 	side = isisants_sideA;
 	IsisAntS_getStatusData(0,side,&ants_stat);
 	side = isisants_sideB;
@@ -401,7 +514,7 @@ void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix)
 	int i=0;
 	// 5. check command receive
 	IsisTrxvu_rcGetFrameCount(0, &RxCounter);
-	printf("\n rxcounter is: %d\n",RxCounter);
+	//printf("rx_counter is %d\n",RxCounter);
 	// 6. check if begin GS mode
 	if(RxCounter>0)
 	{
@@ -432,6 +545,16 @@ void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix)
 			end_gs_mode();
 		}
 	}
+
+	// check if need to delete dump command
+	if ((dump_created==1) && (dump_completed==1))
+	{
+		dump_created = 0;
+		dump_completed = 0;
+		vTaskDelete( taskDumpHandle );
+		printf("delete dump task\n");
+	}
+
 }
 
 void Beacon(gom_eps_hk_t EpsTelemetry_hk)
@@ -455,8 +578,10 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 	beacon.srvc_subtype=25;
 	beacon.len=9;
 	update_time(beacon.c_time);
-	if(!Get_Mute() && !((states & STATE_GS) == STATE_GS))
+
+	if(!Get_Mute() && !(states & STATE_MUTE_EPS))
 	{
+		printf("send beacon\n");
 		update_time(beacon.c_time);
 		Set_Vbatt(EpsTelemetry_hk.fields.vbatt);
 		Set_Cursys(EpsTelemetry_hk.fields.cursys);
@@ -465,6 +590,7 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 		Set_tempCOMM(eng_value);
 		Set_tempEPS(EpsTelemetry_hk.fields.temp[0]);
 		Set_tempBatt(EpsTelemetry_hk.fields.temp[4]);
+
 		dat[1]= glb.Mnlp_State;
 		dat[2]=glb.vbatt;
 		dat[3]=glb.cursys;
