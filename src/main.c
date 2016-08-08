@@ -175,7 +175,7 @@ void initialize_subsystems(gom_eps_hk_t* EpsTelemetry_hk, gom_eps_channelstates_
 	//initialize EPS
 	if(!deployed)
 	{
-		unsigned char voltages[6] = {65,72,74,75,73,66}; //
+		unsigned char voltages[6] = {66,72,74,75,73,67}; //
 		FRAM_write(voltages, EPS_VOLTAGE_ADDR, EPS_VOLTAGE_SIZE);
 	}
 	EPS_Init(EpsTelemetry_hk, channels_state, vbatt_previous);

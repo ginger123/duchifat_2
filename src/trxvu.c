@@ -12,8 +12,9 @@ unsigned char tc_count;
 unsigned char dumpparam[11];
 unsigned int dump_completed = 0;
 unsigned int dump_created = 0;
+unsigned char beacon_count=0;
 xTaskHandle taskDumpHandle;
-
+unsigned long last_wod;
 void update_wod(gom_eps_hk_t EpsTelemetry_hk)
 {
 	Set_Vbatt(EpsTelemetry_hk.fields.vbatt);
@@ -152,13 +153,16 @@ int TRX_sendFrame(unsigned char* data, unsigned char length)
 	return 0;
 }
 
-void act_upon_comm(unsigned char* in)
+void act_upon_comm(unsigned char* in, unsigned short length)
 {
 
 	unsigned int i=0;
 	FRAM_read(&tc_count,TC_COUNT_ADDR,1);
 	in++;
 	rcvd_packet decode;
+
+
+
 	parse_comm(&decode,in);
 	//if(!decode.isvalidcrc) return;
 	printf("\n-----packet structure start-----\n");
@@ -250,12 +254,12 @@ void act_upon_comm(unsigned char* in)
 
 				// check CRC
 				if(Fletcher16(script_ptr,len)) printf("bad script");
-
+				else{
 				printf("received full script\n printing it now\n");
 				print_array(script_ptr,len);				// write to appropriate address
 
 				FRAM_write(script_ptr,scripts_adresses[decode.data[0]],len);//save script numbe
-
+				}
 				// free memory
 				free(script_ptr);
 			}
@@ -270,6 +274,17 @@ void act_upon_comm(unsigned char* in)
 				print_array(cc,200);
 				free(cc);
 
+			}
+			if(decode.srvc_subtype==133)
+			{
+				if(decode.data[0])
+				{
+					states |= STATE_MNLP_ON_GROUND;
+				}
+				else
+				{
+					states &= ~STATE_MNLP_ON_GROUND;
+				}
 			}
 		break;
 		case (131):
@@ -372,7 +387,7 @@ void dump(void *arg)
 		char ADC_comm[] = {"adcs_file"};
 		char ADC_tlm[] = {"adcs_tlm_file"};
 		char mnlp_file[] ={"mnlp"};
-
+		char wod_file[] ={"wod_file"};
 		char *file;
 		unsigned char *temp_data;
 		int size=0;
@@ -412,7 +427,13 @@ void dump(void *arg)
 				file = mnlp_file;
 				end_offest = sizeof(ADCS_Payload_Telemetry)+MNLP_DATA_SIZE;
 				size = sizeof(ADCS_Payload_Telemetry)+MNLP_DATA_SIZE;
-				printf("dump mnlp");
+				printf("dump mnlp\n");
+				break;
+			case 5:
+				file = wod_file;
+				end_offest = 9;
+				size = 9;
+				printf("dump WOD\n");
 				break;
 			default:
 				return;
@@ -537,7 +558,7 @@ void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix)
 
 			}
 			printf("\n\rEND RECEIVED PACKET\r\n");
-			act_upon_comm(receive_frm);
+			act_upon_comm(receive_frm,rxFrameCmd.rx_length);
 		}
 		Time_getUnixEpoch(time_now_unix);
 		if(*time_now_unix - *start_gs_time >= GS_TIME)
@@ -562,6 +583,7 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 	ccsds_packet beacon;
 	unsigned char dat[9];
 	unsigned short telemetryValue;
+	unsigned long cur_wod;
 	float eng_value = 0.0;
 	ISIStrxvuRxTelemetry telemetry;
 
@@ -579,27 +601,54 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 	beacon.len=9;
 	update_time(beacon.c_time);
 
-	if(!Get_Mute() && !(states & STATE_MUTE_EPS))
+	Set_Vbatt(EpsTelemetry_hk.fields.vbatt);
+	Set_Cursys(EpsTelemetry_hk.fields.cursys);
+	Set_Curout3V3(EpsTelemetry_hk.fields.curout[4]);
+	Set_Curout5V(EpsTelemetry_hk.fields.curout[0]);
+	Set_tempCOMM(eng_value);
+	Set_tempEPS(EpsTelemetry_hk.fields.temp[0]);
+	Set_tempBatt(EpsTelemetry_hk.fields.temp[4]);
+
+	if(states & (STATE_MNLP_ON_EPS | STATE_MNLP_ON_GROUND)) dat[1]=1;
+	else dat[1]=0;
+	dat[2]=glb.vbatt;
+	dat[3]=glb.cursys;
+	dat[4]=glb.curout3V3;
+	dat[5]=glb.curout5V;
+	dat[6]=glb.tempCOMM;
+	dat[7]=glb.tempEPS;
+	dat[8]=glb.tempBatt;
+
+	Time_getUnixEpoch(&cur_wod);
+	if(cur_wod-last_wod>60)//of more than 60 sec elapsed after last save. save wod again
 	{
+		WritewithEpochtime("wod_file",0,dat,9);
+		last_wod=cur_wod;
+	}
+
+
+
+
+	if(!Get_Mute())
+	{
+
 		printf("send beacon\n");
 		update_time(beacon.c_time);
-		Set_Vbatt(EpsTelemetry_hk.fields.vbatt);
-		Set_Cursys(EpsTelemetry_hk.fields.cursys);
-		Set_Curout3V3(EpsTelemetry_hk.fields.curout[4]);
-		Set_Curout5V(EpsTelemetry_hk.fields.curout[0]);
-		Set_tempCOMM(eng_value);
-		Set_tempEPS(EpsTelemetry_hk.fields.temp[0]);
-		Set_tempBatt(EpsTelemetry_hk.fields.temp[4]);
 
-		dat[1]= glb.Mnlp_State;
-		dat[2]=glb.vbatt;
-		dat[3]=glb.cursys;
-		dat[4]=glb.curout3V3;
-		dat[5]=glb.curout5V;
-		dat[6]=glb.tempCOMM;
-		dat[7]=glb.tempEPS;
-		dat[8]=glb.tempBatt;
+		if(beacon_count%3==0)
+		{
+			beacon_count=0;
+			IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_1200);
 
+		}
+		else
+		{
+			IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_9600);
+		}
+		beacon_count++;
 		send_SCS_pct(beacon);
+
+		IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_9600);
 	}
+
 }

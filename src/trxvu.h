@@ -60,7 +60,7 @@ void vurc_getRxTelemTest(isisRXtlm *converted);
 void vurc_getTxTelemTest(isisTXtlm *converted);
 void init_trxvu(void);
 int TRX_sendFrame(unsigned char* data, unsigned char length);
-void act_upon_comm(unsigned char* in);
+void act_upon_comm(unsigned char* in, unsigned short length);
 void dump(void *arg);
 void Beacon(gom_eps_hk_t EpsTelemetry_hk);
 Boolean check_ants_deployed();
