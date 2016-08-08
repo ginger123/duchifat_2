@@ -144,9 +144,8 @@ void vurc_getRxTelemTest(isisRXtlm *converted)
 int TRX_sendFrame(unsigned char* data, unsigned char length)
 {
 	unsigned char avalFrames=0;
-	printf("sending data\n");
+
 	IsisTrxvu_tcSendAX25DefClSign(0, data, length, &avalFrames);
-	printf("sent data\n");
 	if(avalFrames==0) return -1;
 	availableFrames=avalFrames;
 	//printf("\navailable space in queue: %d\n",availableFrames);
@@ -194,14 +193,18 @@ void act_upon_comm(unsigned char* in)
 				}
 
 			}
-			if(decode.srvc_subtype==131)//delete function
+			if(decode.srvc_subtype==132)//delete packets function
 			{
 
 
 
 				unsigned long time_to_del = (decode.data[1]<<24) + (decode.data[2]<<16) + (decode.data[3]<<8) + (decode.data[4]);
-				unsigned char storid_to_del= decode.data[0];
+				unsigned int storid_to_del= (int)decode.data[0];
+				print_file("HK_packets",HK_SIZE+5);
+				delete_packets_from_file(storid_to_del, time_to_del);
+				print_file("HK_packets",HK_SIZE+5);
 				//call function for deletion
+
 
 			}
 		break;
@@ -219,7 +222,7 @@ void act_upon_comm(unsigned char* in)
 					Set_Mute(FALSE);//disable mute
 					printf("Command Disable Mute\n");
 				}
-				if(decode.srvc_subtype==133)//reset FTW
+				if(decode.srvc_subtype==134)//reset FTW
 				{
 					//change this to whatever reset sequence we need
 					gracefulReset();
@@ -259,9 +262,14 @@ void act_upon_comm(unsigned char* in)
 			if(decode.srvc_subtype==133)//delete script
 			{
 				unsigned char sc_num=decode.data[0];
-				unsigned char* cc = (unsigned char*) calloc(2000,sizeof(char));
-				FRAM_write(cc,scripts_adresses[sc_num],2000);
+				unsigned char* cc = (unsigned char*) calloc(200,sizeof(char));
+				memset(cc,0xFF,200);
+				FRAM_write(cc,scripts_adresses[sc_num],200);
+
+				FRAM_read(cc,scripts_adresses[sc_num],200);
+				print_array(cc,200);
 				free(cc);
+
 			}
 		break;
 		case (131):
@@ -278,9 +286,14 @@ void act_upon_comm(unsigned char* in)
 				t=t<<8;
 				t+=decode.data[3];
 				printf("\nunix time is: %ld\n",t);
+
+				int j;
+				for(j=0;j<THREAD_TIMESTAMP_LEN;j++)
+				{
+					timestamp[j]=t;
+				}
 				Time_setUnixEpoch(t);
 				ADCS_update_unix_time(t);
-
 			}
 			if(decode.srvc_subtype==2)
 			{
@@ -389,7 +402,7 @@ void dump(void *arg)
 				break;
 			case 3:
 				file=ADC_tlm;
-				end_offest = 6;
+				end_offest = 12;
 				size = sizeof(ADCS_telemetry_data);
 				printf("dump adc_tlm\n");
 				break;

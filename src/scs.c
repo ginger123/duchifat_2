@@ -49,7 +49,6 @@ int send_SCS_pct(ccsds_packet pct_dat)
 {
 	while(is_sending==1) vTaskDelay(100);
 	is_sending=1;
-	printf("send scs pact\n");
 
 	// to review format of the below editing reference SCS documentation under ccsds telemetry packet
 	int retval=0;
@@ -96,7 +95,7 @@ int send_SCS_pct(ccsds_packet pct_dat)
 	chksm= calc_crc(ret,pct_dat.len+14);
 	ret[14+i++]=chksm>>8;
 	ret[14+i]=chksm;
-	printf("enter ax25 Send\n");
+
 	ax25send(ret,pct_dat.len+16);
 
 	ssc[pct_dat.apid]++;

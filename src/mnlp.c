@@ -50,6 +50,7 @@ void taskmnlp()//task for the mnlp operation
 
 	while (1)
 	{
+		kicktime(MNLP_THREAD);
 		// check the need to activate and parse a new script
 		//printf("check for new script\n");
 		new_active_idx = check_new_script();		
@@ -381,7 +382,7 @@ void mnlp_listener()
 
 	while (1)
 	{
-
+		kicktime(MNLPLISTENER_THREAD);
 		// only if ADCS is turned on
 		if (states & STATE_MNLP_ON)
 		{

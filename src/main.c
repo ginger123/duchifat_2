@@ -34,8 +34,19 @@
 #define AUTO_DEPLOYMENT_TIME 10
 
 global_param glb;
+xTaskHandle taskMNLPcomHandle,taskMNLPlistener,taskADCScomHandle,taskMainHandle,taskResetHandle;
+xTaskHandle taskThreadCheck;
+unsigned long timestamp[THREAD_TIMESTAMP_LEN];//0=main 1=mnlp 2=mnlplistener 3=adcs 4=reset
 
+void task_reset();
+void taskMain();
 
+void kicktime(int n)
+{
+	unsigned long t;
+	Time_getUnixEpoch(&t);
+	timestamp[n]=t;
+}
 void initialize_satellite_time(Boolean deployed)
 {
 	unsigned char t[TIME_SIZE];
@@ -204,14 +215,73 @@ void initialize_subsystems(gom_eps_hk_t* EpsTelemetry_hk, gom_eps_channelstates_
 	//SetAttEstMode(2);
 }
 
+void task_threadkeeper()
+{
+	unsigned long t;
+	while(1)
+	{
+		Time_getUnixEpoch(&t);
+		if(t > timestamp[0]+THREAD_TIMEOUT )//0=main 1=mnlp 2=mnlplistener 3=adcs 4=reset
+		{
+			printf("---THREAD MAIN FAILED. RESTARTING ALL---\n");
+			vTaskDelete(taskMainHandle);
+			vTaskDelete(taskMNLPcomHandle);
+			vTaskDelete(taskMNLPlistener);
+			vTaskDelete(taskADCScomHandle);
+			vTaskDelete(taskResetHandle);
+			gracefulReset();
+			//xTaskGenericCreate(taskMain, (const signed char*)"taskMain", 1024, NULL, configMAX_PRIORITIES-2, &taskMainHandle, NULL, NULL);
+			//kicktime(MAIN_THREAD);
+		}
+		if(t > timestamp[1]+THREAD_TIMEOUT )
+		{
+			printf("---THREAD MNLP FAILED. RESTARTING---\n");
+			vTaskDelete(taskMNLPcomHandle);
+			xTaskGenericCreate(taskmnlp, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPcomHandle, NULL, NULL);
+			kicktime(MNLP_THREAD);
 
+		}
+		if(t > timestamp[2]+THREAD_TIMEOUT )
+		{
+			printf("---THREAD MNLP LISTENER FAILED. RESTARTING---\n");
+			vTaskDelete(taskMNLPlistener);
+			xTaskGenericCreate(mnlp_listener, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPlistener, NULL, NULL);
+			kicktime(MNLPLISTENER_THREAD);
+		}
+		if(t > timestamp[3]+THREAD_TIMEOUT )
+		{
+			printf("---THREAD ADCS FAILED. RESTARTING---\n");
+			vTaskDelete(taskADCScomHandle);
+			xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
+			kicktime(ADCS_THREAD);
+		}
+		if(t > timestamp[4]+THREAD_TIMEOUT )
+		{
+			printf("---THREAD RESET FAILED. RESTARTING---\n");
+			vTaskDelete(taskResetHandle);
+			xTaskGenericCreate(task_reset, (const signed char*)"taskReset", 1024, NULL, configMAX_PRIORITIES-2, &taskResetHandle, NULL, NULL);
+			kicktime(RESET_THREAD);
+		}
+		vTaskDelay(THREAD_TIMEOUT);
+	}
+}
+void task_reset()
+{
+	int i=0;
+	for(i=0;i<600;i++)
+		{
+		//printf("reset in %d seconds\n",30-i);
+		vTaskDelay(1000);
+		kicktime(RESET_THREAD);
+		}
+	gracefulReset();
+	while(1);
+}
 
 void taskMain()
 {
 	unsigned short vbatt_previous;
-	xTaskHandle taskMNLPcomHandle,taskMNLPlistener;
-	xTaskHandle taskADCScomHandle;
-	//xTaskHandle taskMNLPlistener;
+
 	//ADCS_CUR_STATE ADc;
 	//ADc.flag = 0;
 	gom_eps_channelstates_t channels_state;
@@ -223,6 +293,7 @@ void taskMain()
 	unsigned long start_gs_time;
 	unsigned long time_now_unix;
 	unsigned long pt;
+	int j;
 	Boolean deployed;
 
 	if (0) // only for cubesupport
@@ -241,11 +312,15 @@ void taskMain()
 
 	// Initialize subsystems
 	initialize_subsystems(&EpsTelemetry_hk, &channels_state, &vbatt_previous);
-
+	for(j=0;j<THREAD_TIMESTAMP_LEN;j++)
+	{
+		kicktime(j);
+	}
 	deployed = check_ants_deployed();
 
 	FRAM_read((unsigned char *)&pt, TIME_ADDR, TIME_SIZE);
-
+	//initialize reset thread which resets every x seconds the satellite
+	xTaskGenericCreate(task_reset, (const signed char*)"taskReset", 1024, NULL, configMAX_PRIORITIES-2, &taskResetHandle, NULL, NULL);
 	while(!deployed)
 	{
 		GomEpsGetHkData_general(0, &EpsTelemetry_hk);
@@ -256,6 +331,7 @@ void taskMain()
 		printf("waited for love for %lu seconds \n", rt-pt);
 		if(rt - pt >= (unsigned long)5)
 		{
+			kicktime(MAIN_THREAD);
 			//deploy_ants();
 			deployed = TRUE;
 			pt = rt;
@@ -268,16 +344,17 @@ void taskMain()
 	unsigned long pt_beacon = pt;
 	unsigned long pt_hk = pt;
 	printf("love was given\n");
-
+	//AllinAll();
 	xTaskGenericCreate(taskmnlp, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPcomHandle, NULL, NULL);
 	xTaskGenericCreate(mnlp_listener, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPlistener, NULL, NULL);
-	//xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
-
+	xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
+	xTaskGenericCreate(task_threadkeeper, (const signed char*)"taskThread", 1024, NULL, configMAX_PRIORITIES-2, &taskThreadCheck, NULL, NULL);
 
 	while(1)
 	{
+		kicktime(MAIN_THREAD);
 		// 1. get telemetry trxvu
-		vurc_getRxTelemTest(&rxtlm);
+		//vurc_getRxTelemTest(&rxtlm);
 
 		IsisTrxvu_rcGetTelemetryAll(0, &rx_tlm);
 
@@ -291,12 +368,13 @@ void taskMain()
 		// 3. Take unix time
 		Time_getUnixEpoch(&time_now_unix);
 
-		if(time_now_unix - pt_hk >= 5)
+		if(time_now_unix - pt_hk >= 10)
 		{
+			printf("sending HK packets\n");
 			pt_hk = time_now_unix;
-			HK_packet_build_save(EpsTelemetry_hk,rx_tlm,tx_tlm,ants_tlm);
+			//HK_packet_build_save(EpsTelemetry_hk,rx_tlm,tx_tlm,ants_tlm);
 			eslADCS_telemetry_Time_Power_temp();
-			idtlm();
+			//idtlm();
 			printf("local time: %lu bat volt %d    states  %x\n",time_now_unix,EpsTelemetry_hk.fields.vbatt, states);
 		}
 		// 3. get telemetry ADCS
@@ -311,7 +389,7 @@ void taskMain()
 		//{
 		// enter Mnlp code here!!!!
 		//}
-		if(time_now_unix - pt >= 60)
+		if(time_now_unix - pt >= 70)
 		{
 			pt = time_now_unix;
 			FRAM_write((unsigned char *)&time_now_unix,TIME_ADDR, TIME_SIZE);
@@ -332,7 +410,7 @@ void taskMain()
 
 			pt_beacon = time_now_unix;
 
-			Beacon(EpsTelemetry_hk);
+			//Beacon(EpsTelemetry_hk);
 		}
 
 
@@ -345,7 +423,6 @@ void taskMain()
 
 int main() {
 	unsigned int i = 0;
-	xTaskHandle taskMainHandle;
 	//
 
 	TRACE_CONFIGURE_ISP(DBGU_STANDARD, 2000000, BOARD_MCK);

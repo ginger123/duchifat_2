@@ -11,6 +11,7 @@ void InitializeFS()
 	F_FILE *file;
 
 	hcc_mem_init(); /* Initialize the memory to be used by filesystem */
+	hcc_mem_delete ();
 
 	ret = fs_init(); /* Initialize the filesystem */
 	ASSERT( (ret == F_NO_ERROR ), "fs_init pb: %d\n\r", ret);
@@ -23,15 +24,15 @@ void InitializeFS()
 
 	//ret = f_format( 0, F_FAT32_MEDIA ); /* Format the filesystem */
 
-	file = f_open( HK_packets, "a" );
+	file = f_open( HK_packets, "w" );
 	ret = f_close( file ); /* data is also considered safe when file is closed */
-	file = f_open( ADC_comm, "a" );
+	file = f_open( ADC_comm, "w" );
 	ret = f_close( file ); /* data is also considered safe when file is closed */
-	file = f_open( ADC_tlm, "a" );
+	file = f_open( ADC_tlm, "w" );
 	ret = f_close( file ); /* data is also considered safe when file is closed */
-	file = f_open( mnlp_file, "a" );
+	file = f_open( mnlp_file, "w" );
 	ret = f_close( file ); /* data is also considered safe when file is closed */
-	file = f_open( wod_file, "a" );
+	file = f_open( wod_file, "w" );
 	ret = f_close( file ); /* data is also considered safe when file is closed */
 	//f_releaseFS(); /* release this task from the filesystem */
 
@@ -146,58 +147,80 @@ void FileReadIndex(char Filename[],char ToWrite[], int _BUFF_SIZE, int index) //
 	//DEMO_SD_TRACE_INFO( "SD Card (%d) read operation completed!\n\r", volID );
 }
 
-void delete_packets_from_file(char Filename[], int ToDel[],int line_size)
+void delete_packets_from_file(int file_idx, unsigned long t)//this line size includes the 5 bytes for time
 {
+	int size;
+	char *file;
 	char temp[] = "tmp.txt";
 	F_FILE* inFile;
 
-	char line [line_size]; // maybe you have to user better value here
-	int lineCount = 0;
-	int ret=0;
-	int i = 0;
+	unsigned char line [200]; // maybe you have to user better value here
 
-	inFile = f_open(Filename, "r");
+	int ret=0;
+
+	unsigned long packtime=0;
+
 	F_FILE* outFile = f_open(temp, "w+");
+
+	char HK_packets[] = {"HK_packets"};
+	char ADC_comm[] = {"adcs_file"};
+	char ADC_tlm[] = {"adcs_tlm_file"};
+	char mnlp_file[] ={"mnlp"};
+
+	switch (file_idx)
+	{
+	case 1://dumping HK packet packet
+		file=HK_packets;
+		size=HK_SIZE+5;
+		break;
+	case 2://dumping adcs commisionning
+		file= ADC_comm;
+		size= ADC_COMM_SIZE+5;
+		break;
+	case 3:
+		file=ADC_tlm;
+		size = sizeof(ADCS_telemetry_data)+5;
+		break;
+	case 4:
+		file = mnlp_file;
+		size = sizeof(ADCS_Payload_Telemetry)+MNLP_DATA_SIZE+5;
+		break;
+	default:
+		return;
+		break;
+	}
+	inFile = f_open(file, "r");
 
 	if( inFile == NULL )
 	{
-	    printf("Open Error");
+		printf("Open Error");
 	}
-
 
 	do
 	{
-		ret = f_read( line, 1 ,line_size, inFile);
-		if(ret == 0)
-			continue;
+		ret = f_read( line, 1 ,size, inFile);
+		packtime = convert_epoctime(line);
+		//print_array(line,line_size);
+		//printf("packet file is %lu start time is %lu ret is %d \n",packtime,t,ret);
+		if(t<packtime) break;
+	}while(ret);
 
-	    if( lineCount != ToDel[i] )
-	    {
-	    	printf("got here\n");
+	// write intermediate packet (if exists)
 
-	    	f_write( line, 1, line_size, outFile );
-	    }
-	    else
-	    {
-	    	printf("delete packet\n");
-	    	i++;
-	    }
-
-	    lineCount++;
-	}while( ret != 0 );
-
+	while (ret)
+	{
+		f_write( line, 1, size, outFile );
+		ret = f_read( line, 1 ,size, inFile);
+		//print_array(line,line_size);
+	}
 
 	f_close(inFile);
 	f_close(outFile);
 
 	// possible you have to remove old file here before
-	f_delete(Filename);
-	f_rename(temp,Filename);
-	//remove(Filename);
-	//if( !f_rename(temp,Filename) )
-	//{
-	   //printf("Rename Error");
-	//}
+	f_delete(file);
+	f_rename(temp,file);
+
 }
 
 int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,unsigned long time_b,int *start_idx)
@@ -241,6 +264,24 @@ int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,uns
 	return num;
 }
 
+void print_file(char filename[],int linesize)
+{
+	F_FILE *file;
+	unsigned char buff[200]={0};
+	int ret_val;
+	file = f_open( filename, "r" ); // open file for reading, which is always safe
+	do{
+		ret_val = f_read( buff, 1, linesize , file );
+		if (ret_val>0)
+		{
+			print_array(buff,linesize);
+			printf("ret val is %d\n",ret_val);
+		}
+	}
+	while (ret_val!=0);
+	f_close(file);
+}
+
 
 void AllinAll()
 {
@@ -253,8 +294,9 @@ void AllinAll()
 	char ToWrite_a[] = {0x01,0x02,0x03,0x01,0x02,0x03,0x01,0x02,0x03,0x00};
 	char ToWrite_b[] = {0x04,0x05,0x06,0x04,0x05,0x06,0x04,0x05,0x06,0x00};
 	char ToWrite_c[] = {0x07,0x08,0x09,0x07,0x08,0x09,0x07,0x08,0x09,0x00};
-	//char ToWrite_d[] = {0x08,0x09,0x0A,0x08,0x09,0x0A,0x08,0x09,0x0A,0x00};
-	//char ToWrite_e[] = {0x0B,0x0C,0x0D,0x0B,0x0C,0x0D,0x0B,0x0C,0x0D,0x00};
+	char ToWrite_d[] = {0x08,0x09,0x0A,0x08,0x09,0x0A,0x08,0x09,0x0A,0x00};
+	char ToWrite_e[] = {0x0B,0x0C,0x0D,0x0B,0x0C,0x0D,0x0B,0x0C,0x0D,0x00};
+	char ToWrite_f[] = {0x0E,0x0F,0x0E,0x0F,0x0E,0x0F,0x0E,0x0F,0x0E,0x0F};
 	char ToRead[_BUFF_SIZE+5];
 
 
@@ -265,7 +307,48 @@ void AllinAll()
 
 	printf("Initialize File system SD test\n");
 	Time_getUnixEpoch(&t_start);
-	t_start=t_start-30*365*24*3600;
+
+	printf("adding first batch\n");
+	kicktime(MAIN_THREAD);
+	printf("printing empty file\n");
+	print_file(filename,_BUFF_SIZE+5);
+	WritewithEpochtime(filename, 0, ToWrite_a, _BUFF_SIZE);
+	WritewithEpochtime(filename, 0, ToWrite_b, _BUFF_SIZE);
+	WritewithEpochtime(filename, 0, ToWrite_c, _BUFF_SIZE);
+	printf("waiting\n");
+	Time_getUnixEpoch(&t_start);
+	vTaskDelay(15000);
+	kicktime(MAIN_THREAD);
+
+	printf("second batch\n");
+	WritewithEpochtime(filename, 0, ToWrite_d, _BUFF_SIZE);
+	WritewithEpochtime(filename, 0, ToWrite_e, _BUFF_SIZE);
+	WritewithEpochtime(filename, 0, ToWrite_f, _BUFF_SIZE);
+
+
+	//reading before deletion
+	printf("printing before deletion\n");
+	print_file(filename,_BUFF_SIZE+5);
+
+	printf("printing again\n");
+	for(i=0;i<6;i++)
+	{
+		FileReadIndex(filename,ToRead, _BUFF_SIZE+5, i);
+		print_array(ToRead,_BUFF_SIZE+5);
+	}
+	printf("erasing\n");
+	//delete_packets_from_file(filename,t_start,_BUFF_SIZE+5);
+	//reading after deletion
+	printf("printing after deletion\n");
+	print_file(filename,_BUFF_SIZE+5);
+	//for(i=0;i<4;i++)
+	//{
+	//	FileReadIndex(filename,ToRead, _BUFF_SIZE+5, i);
+	//	print_array(ToRead,_BUFF_SIZE+5);
+	//}
+	kicktime(MAIN_THREAD);
+
+	/*t_start=t_start-30*365*24*3600;
 	t_start=t_start-24*3600*7;
 
 	for (i=0;i<4;i++)
@@ -311,7 +394,7 @@ void AllinAll()
 		}
 		printf("l\n");
 	}
-
+	 */
 
 }
 

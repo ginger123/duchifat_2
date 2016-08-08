@@ -140,11 +140,41 @@ void Safe(gom_eps_channelstates_t* channels_state)
 	channels_state->fields.channel5V_3 = 0;
 }
 
+void print_general_hk_packet(HK_Struct Packet)
+{
+	// print all values
+	printf("battery voltage %d\n mV",Packet.HK_vbatt);
+	printf("Boost converters: %d,%d,%d mV\n", Packet.HK_vboost[0],Packet.HK_vboost[1],Packet.HK_vboost[2]);
+	printf("Currents: %d,%d,%d mA\n", Packet.HK_curin[0],Packet.HK_curin[1],Packet.HK_curin[2]);
+	printf("temperature %d, %d, %d, %d, %d, %d C\n",Packet.HK_temp[0],Packet.HK_temp[1],Packet.HK_temp[2],Packet.HK_temp[3],Packet.HK_temp[4],Packet.HK_temp[5]);
+	printf("current out of battery %d mA\n",Packet.HK_cursys);
+	printf("current sun sensor %d mA\n",Packet.HK_cursun);
+	printf("states %x mA\n",Packet.HK_states);
 
+	// receiver
+	printf("doppler offset %f kHz\n",Packet.HK_rx_doppler*13.352-22300);
+	printf("RSSI %f dBm\n",Packet.HK_rx_rssi*0.03-152);
+	printf("Bus voltage %f V\n",Packet.HK_rx_bus_volt*0.00488);
+	printf("local oscilator temp %f C\n",Packet.HK_rx_lo_temp*-0.0546+189.5522);
+	printf("Rx up time %d days %d  hours %dminutes %d seconds\n", Packet.HK_rx_uptime[3],Packet.HK_rx_uptime[2],Packet.HK_rx_uptime[1],Packet.HK_rx_uptime[0]);
+	printf("Rx suppply current %f mA\n",Packet.HK_rx_supply_curr*0.0305);
+
+	// transceiver
+	printf("Power amp temp %f C\n",Packet.HK_tx_pa_temp*-0.0546+189.5522);
+	printf("Tx up time %d days %d  hours %dminutes %d seconds\n", Packet.HK_rx_uptime[3],Packet.HK_rx_uptime[2],Packet.HK_rx_uptime[1],Packet.HK_tx_uptime[0]);
+	printf("Tx suppply current %f mA\n",Packet.HK_tx_supply_curr*0.0305);
+
+	//antennas
+	printf("antennas temp: %f C\n",(Packet.HK_ants_temperature * -0.2922) + 190.65);
+	printf("antennas deployment status %x\n",Packet.ant);
+}
 void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm)
 {
 	HK_Struct Packet;
 	char sd_file_name[] = {"HK_packets"};
+	int end_offset = 2;
+	int size = HK_SIZE;
+
 	Packet.sid= EPS_SID;
 	//EPS PARAM START
 	Packet.HK_vbatt = tlm.fields.vbatt;
@@ -196,6 +226,8 @@ void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxv
 	ccs_packet.len = sizeof(HK_Struct);
 	ccs_packet.data = (unsigned char*)&Packet;
 
+	//print_general_hk_packet(Packet);
 
-	//send_SCS_pct(ccs_packet);
+	switch_endian(ccs_packet.data + end_offset, size - end_offset);
+	send_SCS_pct(ccs_packet);
 }

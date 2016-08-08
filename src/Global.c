@@ -23,18 +23,14 @@ double Max(double a, double b)
 
 void Set_Mute(Boolean bool)
 {
-	unsigned char save;
 	if(bool==TRUE)
 	{
 		states = states | STATE_MUTE;
-		save=1;
 	}
 	else
 	{
 		states &= ~STATE_MUTE;
-		save=0;
 	}
-	FRAM_write(&save,MUTE_ADDR,1);
 }
 void Set_Mnlp_State(Boolean state)
 {
@@ -79,11 +75,6 @@ void Set_tempBatt(short temp)
 
 Boolean Get_Mute()
 {
-	unsigned char bool;
-	FRAM_read(&bool,MUTE_ADDR,1);//check in memory if mute is on
-	if(bool) Set_Mute(TRUE);//acts by what is  in fram so it wont transmit after rebooting
-	else Set_Mute(FALSE);
-
 	if((states & STATE_MUTE) || (states& STATE_MUTE_EPS))
 	{
 		return TRUE;

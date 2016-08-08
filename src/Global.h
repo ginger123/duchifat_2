@@ -11,10 +11,16 @@
 #define STATE_MNLP_ON_EPS 0x10
 #define STATE_ADCS_ON_EPS 0x20
 #define GS_TIME 420
+#define THREAD_TIMEOUT 60
+#define THREAD_TIMESTAMP_LEN 5
+
+#define MAIN_THREAD 0//0=main 1=mnlp 2=mnlplistener 3=adcs 4=reset
+#define MNLP_THREAD 1
+#define MNLPLISTENER_THREAD 2
+#define ADCS_THREAD 3
+#define RESET_THREAD 4
 
 #define UNIX_EPOCH_TIME_DIFF 30*365*24*3600+7*24*3600
-
-#define MUTE_ADDR 0x10C3
 
 extern unsigned char states;
 extern gom_eps_channelstates_t glb_channels_state;
@@ -47,10 +53,9 @@ void convert_time_array(unsigned long t_l, unsigned char time[5]);
 void print_array(unsigned char *arr,int length);
 void switch_endian(unsigned char *in, int len);
 void double_little_endian(unsigned char* d);
+void kicktime(int n);
 Boolean Get_Mute();
 
 double Min(double a, double b);
 double Max(double a, double b);
-
-
 #endif
