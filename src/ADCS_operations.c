@@ -631,42 +631,22 @@ void ADCS_update_tle(unsigned char* tle)
 	ADCS_command(64,temp_tle,64);
 }
 
-void ADCS_set_magnetometer_config()
+void ADCS_set_magnetometer_config(unsigned char mag_config_set[30])
 {
-	unsigned char get_comm=192,set_comm=86,save_com = 100;
+	unsigned char set_comm=86,save_com = 100;
 	unsigned char get_data[240],set_data[30];
 	int i;
 	adcs_calibration calibration;
 
+	I2C_write(0x12,&set_comm,1);
+	vTaskDelay(5);
+	I2C_read(0x12, mag_config_set, 30);
 
-	eslADCS_getCalibration(&calibration);
-	printf("the following are values before settings\n");
-	print_calibration( &calibration);
-
-	I2C_write(0x12, &get_comm, 1);
-	vTaskDelay(500 / portTICK_RATE_MS);
-	I2C_read(0x12, get_data, 240);
-
-	// set the offset values and sensiticity matrix
-	for (i=0;i<24;i++)
-	{
-		set_data[6+i] = get_data[120+i];
-	}
-
-	// magnetometer angles
-	set_data[0] = 0;
-	set_data[1] = 0;
-	set_data[2] = 0x28;
-	set_data[3] = 0x23;
-	set_data[4] = 0;
-	set_data[5] = 0;
-	// set the
-	printf("set new data\n");
-	ADCS_command(set_comm,set_data,30);
-	printf("the following are values after settings\n");
-	eslADCS_getCalibration(&calibration);
-	print_calibration( &calibration);
 	I2C_write(0x12, &save_com, 1);
+
+	eslADCS_getCalibration(&calibration);
+	printf("the following are values after settings\n");
+	print_calibration( &calibration);
 }
 
 void get_sat_llh_pos(adcs_refllhcoord_t *llh_in)
