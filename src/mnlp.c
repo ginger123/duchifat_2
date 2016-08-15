@@ -19,6 +19,7 @@ int sqnc_on, sqnc_complete;
 short sqnc_locations[6];
 int scripts_adresses[]={0x12000,0x14000,0x16000,0x18000,0x1A000,0x1C000,0x1E000};
 unsigned char mnlp_err;
+int turnover=0;
 unsigned long timeout_mnlp;
 
 
@@ -37,16 +38,29 @@ void taskmnlp()//task for the mnlp operation
 #endif
 	int active_idx=-1,new_active_idx;
 	int day_time;
-	int sqnc_start;
+
 	int date;
 	char args[2];
 	unsigned char * script_ptr=NULL;
 	tt_ctr = 0;
+	int i;
 
 	// demi allocation
 #ifndef SIMULATION
 	script_ptr = (unsigned char *)calloc(10,sizeof(char));
 #endif
+
+	// ONLY FOR VKI TEST
+	if (0)
+	{
+	turn_on_payload();
+	for (i=0;i<600;i++)
+	{
+		kicktime(MNLP_THREAD);
+		vTaskDelay(1000);
+	}
+	turn_off_payload();
+	}
 
 	while (1)
 	{
@@ -89,6 +103,11 @@ void taskmnlp()//task for the mnlp operation
 
 			day_time = t.hours *3600 + t.minutes*60 +t.seconds;
 #endif
+			if (( day_time >= 0) && ( day_time <120) && (turnover==1))
+			{
+				printf("its a new day!!!\n");
+				turnover =0;
+			}
 
 			// Check if time for running sequence			 
 			date = script_ptr[TIME_TABLE_START+tt_ctr*4] +script_ptr[TIME_TABLE_START+tt_ctr*4 + 1]*60 + script_ptr[TIME_TABLE_START+tt_ctr*4 + 2]*3600;
@@ -108,7 +127,7 @@ void taskmnlp()//task for the mnlp operation
 						sqnc_on = 1;
 						_sqncTask(args);
 #else
-						if (states & (STATE_MNLP_ON +STATE_MNLP_ON_EPS))
+						if (states & (STATE_MNLP_ON_EPS +STATE_MNLP_ON_GROUND))
 						{
 							sqnc_on = 1;
 							xTaskGenericCreate(_sqncTask, (const signed char*)"taskSqnce", 1024, (void *)args, configMAX_PRIORITIES - 2, &task_mNLP_sqnc, NULL, NULL);
@@ -118,19 +137,27 @@ void taskmnlp()//task for the mnlp operation
 					}
 					else
 					{
+						printf("reached end of time\n");
 						tt_ctr = 0;
+						turnover = 1;
 					}
 				}
 				else 
 				{
-					args[1] = (unsigned char) script_ptr[TIME_TABLE_START+tt_ctr*4+3];
-					if (args[1]==MNLP_TT_EOT)
+					if (turnover == 0)
 					{
-						tt_ctr = 0;
-					}
-					else
-					{
-						tt_ctr += 1;
+						args[1] = (unsigned char) script_ptr[TIME_TABLE_START+tt_ctr*4+3];
+						if (args[1]==MNLP_TT_EOT)
+						{
+							printf("reached end of time\n");
+							tt_ctr = 0;
+							turnover = 1;
+						}
+						else
+						{
+							printf("missed sequence!! - add time table counter %d\n",tt_ctr+1);
+							tt_ctr += 1;
+						}
 					}
 					//
 				}
@@ -183,7 +210,7 @@ void taskmnlp()//task for the mnlp operation
 void _sqncTask(void *args)//task for the sqnc
 {
 	unsigned char * arg_ptr;
-	int i = 0;
+
 	int sqnc_num,active_idx,sqnc_len;
 	unsigned char * sqnc_ptr;
 	int delay;
@@ -375,7 +402,8 @@ void parse_script(short active_idx)
 
 void mnlp_listener()
 {
-	unsigned char readData[174];
+	unsigned char readData[175];
+	unsigned char *readPtr = readData;
 	int retValInt,readSize = 174;
 	UARTbus bus = bus0_uart;
 	f_enterFS();
@@ -388,20 +416,24 @@ void mnlp_listener()
 		{
 			retValInt = UART_read(bus, readData, readSize);
 
-
-			print_array(readData,readSize);
-			if(readData[0]==0xBB)
+			if (readData[0] == 0x00)
 			{
-				mnlp_err= get_ERR_code(readData);
+				readPtr++;
+			}
+
+			print_array(readPtr,readSize);
+			if(readPtr[0]==0xBB)
+			{
+				mnlp_err= get_ERR_code(readPtr);
 			}
 			else//everything is good
 			{
-				if (readData[0]==0x09 || readData[0]==0x0A)
+				if (readPtr[0]==0x09 || readPtr[0]==0x0A)
 				{
 					Time_getUnixEpoch(&timeout_mnlp);
 					printf("return val is %d\n",retValInt);
 				}
-				Build_PayloadPacket(readData);
+				Build_PayloadPacket(readPtr);
 			}
 		}
 		vTaskDelay(500);
@@ -430,6 +462,7 @@ void turn_off_payload()
 	Pin Pin05 = GPIO_05;
 	Pin Pin06 = GPIO_06;
 	Pin Pin07 = GPIO_07;
+	states &= ~STATE_MNLP_ON;
 	PIO_Clear(&Pin04);
 	vTaskDelay(10);
 	PIO_Clear(&Pin05);

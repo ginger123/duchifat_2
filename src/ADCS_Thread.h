@@ -13,6 +13,8 @@
 typedef struct ADCS_comissioning_data
 {
 	char sid;
+	char stage;
+	char RAW_CSS[6];
 	short estimated_anglar_rates[3];
 	short magnetic_field_vactor[3];
 	short sensor_rates[3];
@@ -25,9 +27,7 @@ typedef struct ADCS_comissioning_data
 	short RAW_sun_sensors[4];
 	short wheel_speed_estimation[3];
 	short wheel_speed_command[3];
-	char RAW_CSS[6];
 }ADCS_comissioning_data;
-
 
 
 extern int adcs_advance_stage;

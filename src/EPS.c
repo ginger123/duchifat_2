@@ -99,21 +99,29 @@ void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state
 	}
 	*vbatt_previous = EPS_Cur_TLM->fields.vbatt;
 
-	if (0)
-	{
-	GomEpsConfigGet(0, &eps_config);
-	//printf("\n\n\nHeater low is: %d\n",eps_config.fields.battheater_low);
-	printf("Heater high is: %d\n",eps_config.fields.battheater_high);
-	printf("mode is: %d\n\n\n",eps_config.fields.battheater_mode);
-	eps_config.fields.battheater_low = 0;
-	eps_config.fields.battheater_high = 10;
-	eps_config.fields.battheater_mode = 1;
-	GomEpsConfigSet(0,&eps_config);
-	GomEpsConfigGet(0, &eps_config);
-	printf("\n\n\nHeater low is: %d\n",eps_config.fields.battheater_low);
-	printf("Heater high is: %d\n",eps_config.fields.battheater_high);
-	printf("mode is: %d\n\n\n",eps_config.fields.battheater_mode);
-	}
+}
+
+void print_config(eps_config_t config_data)
+{
+    printf(" battery low is %d and high is %d\n",(int)config_data.fields.battheater_low,(int)config_data.fields.battheater_high);
+    printf(" heater mode %d\n",(int) config_data.fields.battheater_mode);
+    printf("vboost PPT %d,%d,%d\n ", config_data.fields.vboost[0],config_data.fields.vboost[1],config_data.fields.vboost[2]);
+}
+
+void set_heater_values(char heater_params[2])
+{
+    eps_config_t config_data;
+    GomEpsConfigGet(0,&config_data);
+    print_array(heater_params,2);
+    printf("before:\n");
+    print_config(config_data);
+    config_data.fields.battheater_low = heater_params[0];
+    config_data.fields.battheater_high = heater_params[1];
+    GomEpsConfigSet(0,&config_data);
+
+    GomEpsConfigGet(0,&config_data);
+    printf("after:\n");
+    print_config(config_data);
 }
 
 void Cruse(gom_eps_channelstates_t* channels_state)
@@ -168,6 +176,7 @@ void print_general_hk_packet(HK_Struct Packet)
 	printf("antennas temp: %f C\n",(Packet.HK_ants_temperature * -0.2922) + 190.65);
 	printf("antennas deployment status %x\n",Packet.ant);
 }
+
 void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm)
 {
 	HK_Struct Packet;
@@ -217,6 +226,11 @@ void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxv
 				//COMM END
 	WritewithEpochtime(sd_file_name, 0,(char *)&Packet,sizeof(HK_Struct));
 
+	//printf("Vbatt is %d\n Vboosts are %d,%d,%d\n Curin are %d,%d,%d\n EPS temps are %d,%d,%d,%d,%d,%d\n, cursys is %d\n, cursun is %d\n states is %d\n rx doppler is %d\n rx rssi is %d\n",Packet.HK_vbatt,Packet.HK_vboost[0],Packet.HK_vboost[1],Packet.HK_vboost[2],Packet.HK_curin[0],Packet.HK_curin[1],Packet.HK_curin[2],Packet.HK_temp[0],Packet.HK_temp[1],Packet.HK_temp[2],Packet.HK_temp[3],Packet.HK_temp[4],Packet.HK_temp[5],Packet.HK_cursys,Packet.HK_cursun,Packet.HK_states,Packet.HK_rx_doppler,Packet.HK_rx_rssi);
+	//printf("rx bus volt is %d\n rx lo temp is %d\n rx supply curr is %d\n tx pa temp is %d\n tx supply curr is %d\n",Packet.HK_rx_bus_volt,	Packet.HK_rx_lo_temp,Packet.HK_rx_supply_curr,Packet.HK_tx_pa_temp,Packet.HK_tx_supply_curr);
+	//printf("tx power fwb is %d\n tx power refl is %d\n ants temp is %d\n, ant is %d\n",Packet.HK_tx_power_fwd_dbm,Packet.HK_tx_power_refl_dbm,Packet.HK_ants_temperature,Packet.ant);
+
+
 	// send packet
 	ccsds_packet ccs_packet;
 	ccs_packet.apid=10;
@@ -229,5 +243,5 @@ void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxv
 	//print_general_hk_packet(Packet);
 
 	switch_endian(ccs_packet.data + end_offset, size - end_offset);
-	send_SCS_pct(ccs_packet);
+	//send_SCS_pct(ccs_packet);
 }

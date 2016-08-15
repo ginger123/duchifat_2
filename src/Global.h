@@ -11,8 +11,31 @@
 #define STATE_MNLP_ON_EPS 0x10
 #define STATE_ADCS_ON_EPS 0x20
 #define STATE_MNLP_ON_GROUND 0x40
+
+// times
+#define BEACON_TIME 20
+#define SAVE_TELEMETRY_TIME 60
+#define MAIN_ITERATION_TIME 1000
+#define RESET_TIMEOUT 43200   	//second until reset
+//#define DEPLOY_TIME	  1800		// seconds until deployment
+#define DEPLOY_TIME	  10		// seconds until deployment
+#define BOOM_DEPLOY_TIME 5
+//#define REDEPLOY_TIME	  2700		// seconds until deployment
+#define REDEPLOY_TIME 120
+#define AUTO_DEPLOYMENT_TIME 10
+
+
+// FRAM
+#define TIME_ADDR 0x10BB
+#define TIME_SIZE 8
+#define ADCS_STAGE_ADDR 0x10D0
+#define ADCS_STAGE_SIZE 4
+#define EPS_VOLTAGE_ADDR 0x1000
+#define EPS_VOLTAGE_SIZE 6
+
 #define GS_TIME 420
 #define THREAD_TIMEOUT 60
+#define THREAD_LISTENER_TIMEOUT 500
 #define THREAD_TIMESTAMP_LEN 5
 
 #define MAIN_THREAD 0//0=main 1=mnlp 2=mnlplistener 3=adcs 4=reset
@@ -21,7 +44,7 @@
 #define ADCS_THREAD 3
 #define RESET_THREAD 4
 
-#define UNIX_EPOCH_TIME_DIFF 30*365*24*3600+7*24*3600
+#define UNIX_EPOCH_TIME_DIFF (30*365*24*3600+7*24*3600)
 
 extern unsigned char states;
 extern gom_eps_channelstates_t glb_channels_state;
@@ -39,7 +62,6 @@ unsigned char tempBatt;
 
 extern global_param glb;
 
-
 void Set_Mute(Boolean bool);// 0 is mute off ,1 is mute on 2 is mute_eps on 3 is both mutes on
 void Set_Mnlp_State(Boolean state);
 void Set_Vbatt(unsigned short Vbatt);
@@ -56,6 +78,8 @@ void switch_endian(unsigned char *in, int len);
 void double_little_endian(unsigned char* d);
 void kicktime(int n);
 Boolean Get_Mute();
+
+void deploy_ants(gom_eps_channelstates_t channels_state);
 
 double Min(double a, double b);
 double Max(double a, double b);

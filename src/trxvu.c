@@ -153,7 +153,7 @@ int TRX_sendFrame(unsigned char* data, unsigned char length)
 	return 0;
 }
 
-void act_upon_comm(unsigned char* in, unsigned short length)
+void act_upon_comm(unsigned char* in, unsigned short length,gom_eps_channelstates_t channels_state)
 {
 
 	unsigned int i=0;
@@ -164,7 +164,7 @@ void act_upon_comm(unsigned char* in, unsigned short length)
 
 
 	parse_comm(&decode,in);
-	//if(!decode.isvalidcrc) return;
+	if(!decode.isvalidcrc) return;
 	printf("\n-----packet structure start-----\n");
 	printf("\napid is: %d",decode.apid);
 	printf("\nlength is: %d",decode.len);
@@ -204,9 +204,9 @@ void act_upon_comm(unsigned char* in, unsigned short length)
 
 				unsigned long time_to_del = (decode.data[1]<<24) + (decode.data[2]<<16) + (decode.data[3]<<8) + (decode.data[4]);
 				unsigned int storid_to_del= (int)decode.data[0];
-				print_file("HK_packets",HK_SIZE+5);
+
 				delete_packets_from_file(storid_to_del, time_to_del);
-				print_file("HK_packets",HK_SIZE+5);
+
 				//call function for deletion
 
 
@@ -234,7 +234,21 @@ void act_upon_comm(unsigned char* in, unsigned short length)
 				if(decode.srvc_subtype==137)
 				{
 					adcs_stage=decode.data[0];
+					FRAM_write((unsigned char *)&adcs_stage, ADCS_STAGE_ADDR,4);
 					printf("Change stage to %d\n",adcs_stage);
+				}
+				if(decode.srvc_subtype==138) // Redeploy
+				{
+
+					printf("redeploy\n");
+					//deploy_ants(channels_state);
+				}
+				if(decode.srvc_subtype==139) // generic i2c
+				{
+					printf("I2C command for address %x length %x\n",decode.data[0],decode.data[1]);
+					print_array(&decode.data[2],decode.data[1]);
+					I2C_write((unsigned int)decode.data[0],&decode.data[2],decode.data[1]);
+					deploy_ants(channels_state);
 				}
 			break;
 		case (130):
@@ -309,6 +323,7 @@ void act_upon_comm(unsigned char* in, unsigned short length)
 				}
 				Time_setUnixEpoch(t);
 				ADCS_update_unix_time(t);
+				FRAM_write((unsigned char *)&t, TIME_ADDR, TIME_SIZE);
 			}
 			if(decode.srvc_subtype==2)
 			{
@@ -326,7 +341,7 @@ void act_upon_comm(unsigned char* in, unsigned short length)
 				send_SCS_pct(response);
 				printf("Command report Time\n");
 			}
-			if(decode.srvc_subtype == 3)
+			if(decode.srvc_subtype == 3) // set voltages
 			{
 				unsigned char n_voltages[EPS_VOLTAGE_SIZE];
 				int i = 0;
@@ -341,6 +356,17 @@ void act_upon_comm(unsigned char* in, unsigned short length)
 				print_array(n_voltages,6);
 				print_array(voltages,6);
 			}
+			if(decode.srvc_subtype == 5)  // magnetometer calibration
+			{
+				printf("set magnetometer config\n");
+				print_array(decode.data,30);
+				ADCS_set_magnetometer_config(decode.data);
+			}
+			if(decode.srvc_subtype == 6)  // heaters
+			{
+				set_heater_values((char *)decode.data);
+			}
+
 		break;
 		default:
 			free(decode.data);
@@ -426,7 +452,7 @@ void dump(void *arg)
 				pct.srvc_subtype=1;
 				file = mnlp_file;
 				end_offest = sizeof(ADCS_Payload_Telemetry)+MNLP_DATA_SIZE;
-				size = sizeof(ADCS_Payload_Telemetry)+MNLP_DATA_SIZE;
+				size = MNLP_HEADER_SIZE+MNLP_DATA_SIZE;
 				printf("dump mnlp\n");
 				break;
 			case 5:
@@ -436,7 +462,12 @@ void dump(void *arg)
 				printf("dump WOD\n");
 				break;
 			default:
-				return;
+				while (1)
+				{
+						printf("wrong data type\n");
+						dump_completed = 1;
+						vTaskDelay(500 / portTICK_RATE_MS);
+				}
 				break;
 		}
 
@@ -464,7 +495,7 @@ void dump(void *arg)
 
 			//delete_packets_from_file(file, todel,size);
 			send_SCS_pct(pct);
-
+			vTaskDelay(100);
 			printf("sent packet %d\n",i);
 		}
 
@@ -527,7 +558,7 @@ Boolean check_ants_deployed()// NOT WORKING CAUSE ISIS CODE
 }
 
 
-void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix)
+void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix,gom_eps_channelstates_t channels_state)
 {
 	unsigned char receive_frm[SIZE_RXFRAME];
 	ISIStrxvuRxFrame rxFrameCmd = {0,0,0, receive_frm};
@@ -558,7 +589,7 @@ void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix)
 
 			}
 			printf("\n\rEND RECEIVED PACKET\r\n");
-			act_upon_comm(receive_frm,rxFrameCmd.rx_length);
+			act_upon_comm(receive_frm,rxFrameCmd.rx_length,channels_state);
 		}
 		Time_getUnixEpoch(time_now_unix);
 		if(*time_now_unix - *start_gs_time >= GS_TIME)
@@ -632,7 +663,7 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 	if(!Get_Mute())
 	{
 
-		printf("send beacon\n");
+		//printf("send beacon\n");
 		update_time(beacon.c_time);
 
 		if(beacon_count%3==0)
@@ -648,7 +679,7 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 		beacon_count++;
 		send_SCS_pct(beacon);
 
-		IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_9600);
+		IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_1200);
 	}
 
 }

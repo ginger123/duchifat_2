@@ -72,7 +72,7 @@ void adc_stages(int stage)
 void ADC_Stage_1()
 {
 
-	adcs_stage = 1;
+	unsigned char ptr[64];
 
 	adcs_powerdev_t Device_ctrl;
 	Device_ctrl.fields.pwr_motor = selection_on; //motor power on(1)
@@ -90,9 +90,13 @@ void ADC_Stage_1()
 	eslADCS_setEstimationMode(est_magnetometer_rate); //set the estimation mode
 	eslADCS_setPwrCtrlDevice(Device_ctrl); //power on the motor
 
+
+
 	while (adcs_stage == 1)
 	{
+		kicktime(ADCS_THREAD);
 		commisioning_data.sid = ADC_SID;
+		commisioning_data.stage = 1;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; // getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -106,6 +110,19 @@ void ADC_Stage_1()
 		commisioning_data.magnetic_field_vactor[1] = Mag_field.fields.y_magfield;//getting the data to the commisioning_data struct
 		commisioning_data.magnetic_field_vactor[2] = Mag_field.fields.z_magfield;
 
+		//if (Mag_field.fields.z_magfield==0)
+		if (0)
+		{
+			printf("reset for ADCS\n");
+			adcs_reset(1);
+			kicktime(ADCS_THREAD);
+			adcs_reset(2);
+			kicktime(ADCS_THREAD);
+			adcs_reset(3);
+			kicktime(ADCS_THREAD);
+			adcs_reset(4);
+		}
+		/*
 		printf(" estimated angular rates x: %f deg/s\n",0.01*commisioning_data.estimated_anglar_rates[0]);
 		printf(" estimated angular rates y: %f deg/s\n",0.01*commisioning_data.estimated_anglar_rates[1]);
 		printf(" estimated angular rates z: %f deg/s\n",0.01*commisioning_data.estimated_anglar_rates[2]);
@@ -120,12 +137,12 @@ void ADC_Stage_1()
 				//Mag Field Vector
 		printf(" Mag Field Vector x: %f nT\n",10*(float)commisioning_data.magnetic_field_vactor[0]);
 		printf(" Mag Field Vector y: %f nT\n",10*(float)commisioning_data.magnetic_field_vactor[1]);
-		printf(" Mag Field Vector z: %f nT\n",10*(float)commisioning_data.magnetic_field_vactor[2]);
+		printf(" Mag Field Vector z: %f nT\n",10*(float)commisioning_data.magnetic_field_vactor[2]);*/
 				//Mag Field Vector
 		//printf(" total size is %f nT\n", (pow(commisioning_data.magnetic_field_vactor[0],2)+pow(commisioning_data.magnetic_field_vactor[1],2)+pow(commisioning_data.magnetic_field_vactor[2],2)));
 		WritewithEpochtime("adcs_file",0, (char *) &commisioning_data, sizeof(ADCS_comissioning_data));
 		printf("delay for 10 seconds\n");
-		vTaskDelay(10000 / portTICK_RATE_MS);
+		vTaskDelay(20000 / portTICK_RATE_MS);
 	}
 }
 
@@ -158,7 +175,9 @@ void ADC_Stage_2()
 
 	while(adcs_stage == 2)
 	{
+		kicktime(ADCS_THREAD);
 		commisioning_data.sid = ADC_SID;
+		commisioning_data.stage = 2;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -190,7 +209,7 @@ void ADC_Stage_3()
 	Device_ctrl.fields.motor_cubecontrol = selection_auto; //all others auto
 	Device_ctrl.fields.pwr_cubesense = selection_auto;
 	Device_ctrl.fields.pwr_gpsantlna = selection_auto;
-	Device_ctrl.fields.signal_cubecontrol = selection_auto;
+	Device_ctrl.fields.signal_cubecontrol = selection_on;
 	adcs_ctrlmodeset_t modesetting;
 	adcs_angrate_t Ang_rates;
 	adcs_angrate_t Sen_rates;
@@ -225,11 +244,13 @@ void ADC_Stage_3()
 	  * eslADCS_setConfMagMeter
 	*/
 
-	eslADCS_setConfSave(0);
+	//eslADCS_setConfSave(0);
 
 	while (adcs_stage == 3)
 	{
+		kicktime(ADCS_THREAD);
 		commisioning_data.sid = ADC_SID;
+		commisioning_data.stage = 3;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -260,7 +281,7 @@ void ADC_Stage_4()
 	adcs_angrate_t Ang_rates;
 	adcs_angrate_t Sen_rates;
 	adcs_raw_magmeter_t raw_mag;
-	modesetting.fields.mode = ctrl_mode_detumbling;
+	modesetting.fields.mode = ctrl_mode_none;
 	eslADCS_setStateADCS(state_enabled);
 	eslADCS_setEstimationMode(est_magnetometer_rate);
 	eslADCS_setAttitudeCtrlMode(modesetting);
@@ -277,7 +298,9 @@ void ADC_Stage_4()
 
 	while (adcs_stage == 4)
 	{
+		kicktime(ADCS_THREAD);
 		commisioning_data.sid = ADC_SID;
+		commisioning_data.stage = 4;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -315,18 +338,26 @@ void ADC_Stage_5()
 	adcs_magfieldvec_t Mag_field;
 	adcs_ecirefvel_t sat_vel;
 	ADCS_comissioning_data commisioning_data;
+	adcs_currstate_t current_state;
 	mode = est_magnetometer_ratewithpitch;
 	modesetting.fields.mode = ctrl_mode_detumbling;
 	unix_time.fields.unix_time_sec = Time_getUnixEpoch(&epochTime);
 	eslADCS_setStateADCS(state_enabled);
 	eslADCS_getCurrentTime(&unix_time);
+
+	// for testing!!
+	//unsigned char ptr[64];
+	//ADCS_update_tle(ptr);
+
 	//eslADCS_setOrbitParam() need to complete!!!
 	eslADCS_setEstimationMode(mode);
 	eslADCS_setAttitudeCtrlMode(modesetting);
 	eslADCS_setPwrCtrlDevice(Device_ctrl);
 	while (adcs_stage == 5)
 	{
+		kicktime(ADCS_THREAD);
 		commisioning_data.sid = ADC_SID;
+		commisioning_data.stage = 5;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -347,11 +378,16 @@ void ADC_Stage_5()
 		commisioning_data.sattelite_position[0] = sat_pos.fields.longitud; //getting the data to the commisioning_data struct
 		commisioning_data.sattelite_position[1] = sat_pos.fields.latitude;
 		commisioning_data.sattelite_position[2] = sat_pos.fields.altitude;
+
+		// get position ECI - for testing
+		eslADCS_getCurrentPosition(&current_state);
+		printf("ECI locations - X: %f, Y: %f, Z: %f [km]\n",current_state.fields.position_x*0.25,current_state.fields.position_y*0.25,current_state.fields.position_z*0.25);
+
 		eslADCS_getSatelliteVelocityVec(&sat_vel); //filling the sat_vel with data
 		commisioning_data.sattelite_velocity[0] = sat_vel.fields.x_velocity;
 		commisioning_data.sattelite_velocity[1] = sat_vel.fields.y_velocity;
 		commisioning_data.sattelite_velocity[2] = sat_vel.fields.z_velocity;
-		vTaskDelay(10000 / portTICK_RATE_MS); //dealy of 10s
+		vTaskDelay(20000 / portTICK_RATE_MS); //dealy of 10s
 		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));
 	}
 }
@@ -393,7 +429,9 @@ void ADC_Stage_6()
 	modesetting.fields.mode = ctrl_mode_detumbling;
 	while (adcs_stage == 6)
 	{
+		kicktime(ADCS_THREAD);
 		commisioning_data.sid = ADC_SID;
+		commisioning_data.stage = 6;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -430,7 +468,7 @@ void ADC_Stage_6()
 
 void ADC_Stage_7()
 {
-	adcs_estmode_t mode;
+
 	adcs_powerdev_t Device_ctrl;
 	Device_ctrl.fields.pwr_motor = selection_on;
 	Device_ctrl.fields.motor_cubecontrol = selection_on;
@@ -470,19 +508,21 @@ void ADC_Stage_7()
 	eslADCS_setAttitudeCtrlMode(modesetting);
 
 	eslADCS_getEstimatedAttAngles(&att_angles);
-	pitch = 0.01*att_angles->fields.pitch;
+	pitch = 0.01*att_angles.fields.pitch;
 	while(pitch < -10 || pitch > 10)
 	{
 		vTaskDelay(1000 / portTICK_RATE_MS);
 		eslADCS_getEstimatedAttAngles(&att_angles);
-		pitch = 0.01*att_angles->fields.pitch;
+		pitch = 0.01*att_angles.fields.pitch;
 	}
 
 	eslADCS_setEstimationMode(mode1);
 
 	while (adcs_stage == 7)
 	{
+		kicktime(ADCS_THREAD);
 		commisioning_data.sid = ADC_SID;
+		commisioning_data.stage = 7;
 		eslADCS_getEstimatedAngRates(&Ang_rates); //filling the Ang_rates with data
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -539,7 +579,9 @@ void ADC_Stage_8()
 	eslADCS_setPwrCtrlDevice(Device_ctrl);
 	while (adcs_stage == 8)
 	{
+		kicktime(ADCS_THREAD);
 		commisioning_data.sid = ADC_SID;
+		commisioning_data.stage = 8;
 		eslADCS_getEstimatedAngRates(&Ang_rates);
 		commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
 		commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
@@ -567,6 +609,7 @@ void ADC_Stage_8()
 	    commisioning_data.RAW_nadir_sensors[2] = raw_nadir.fields.nadir_busystatus;
 	    commisioning_data.RAW_nadir_sensors[3] = raw_nadir.fields.nadir_result;
 		eslADCS_getRawSunSensor(&raw_sun);
+
 		commisioning_data.RAW_sun_sensors[0] = raw_sun.fields.sun_centroid_x;
 		commisioning_data.RAW_sun_sensors[1] = raw_sun.fields.sun_centroid_y;
 		commisioning_data.RAW_sun_sensors[2] = raw_sun.fields.sun_busystatus;
@@ -590,9 +633,21 @@ void task_adcs_commissioning()
 	//adcs_calibration calibration;
 	//printf("delay for 18 seconds\n");
 	adcs_reset(1);
+	kicktime(ADCS_THREAD);
+	//adcs_reset(2);
+	kicktime(ADCS_THREAD);
+	//adcs_reset(3);
+	kicktime(ADCS_THREAD);
 	adcs_reset(4);
+	kicktime(ADCS_THREAD);
 
-	adcs_stage = 1;
+	FRAM_read((unsigned char *)&adcs_stage, ADCS_STAGE_ADDR,4);
+	if ((adcs_stage<1) || (adcs_stage>8))
+	{
+		adcs_stage = 1;
+		FRAM_write((unsigned char *)&adcs_stage, ADCS_STAGE_ADDR,4);
+	}
+
 	while(1)
 	{
 		printf("enter stage %d\n",adcs_stage);

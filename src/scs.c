@@ -168,6 +168,13 @@ void parse_comm(rcvd_packet *pct, unsigned char in[])
 	len=in[4]<<8;
 	len+=in[5]+1-5;//length of only the data part
 	pct->len=len;
+	if(len>250)
+	{
+		printf("checksum of packet failed. aborting command\n");
+		pct->isvalidcrc=FALSE;
+		tc_verification_report(*pct,TC_ACCEPT_SERVICE_FAILURE,ERR_ILEGAL_DATA,in);
+		return;
+	}
 	data=calloc(pct->len,sizeof(unsigned char));
 	for(;i<len;i++)
 	{

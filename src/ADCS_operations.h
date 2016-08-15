@@ -8,9 +8,11 @@
 
 typedef struct ADCS_Payload_Telametry
 {
+	int   epoch_time;
 	short estimated_anglar_rates[3];
 	short estimated_attitude_angles[3];
 	short current_Position[3];
+	short demo;
 }ADCS_Payload_Telemetry;
 
 typedef struct ADCS_telemetry_data
@@ -20,7 +22,7 @@ typedef struct ADCS_telemetry_data
 	char magnetometer_temp;
 	unsigned char csense_nadirSRAMcurr;
 	unsigned char csense_sunSRAMcurr;
-	unsigned char demo;
+	unsigned char stage;
 	unsigned char status[6];
 	unsigned short csense_3v3curr;
 	unsigned short arm_cpuTemp;
@@ -86,4 +88,7 @@ void adcs_reset(unsigned char type);
 void adcs_set_estimation_param();
 void eslADCS_getCalNadirSensor();
 void eslADCS_getCalSunSensor();
+void print_send_ADCS_telemetry_packet(ADCS_telemetry_data telemetry_data);
+void print_payload_header(adcs_angrate_t ang_rates, adcs_attangles_t att_angles,adcs_currstate_t current_state,unsigned long t);
+void test_commissioning_packet();
 #endif

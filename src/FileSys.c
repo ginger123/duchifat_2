@@ -1,6 +1,6 @@
 #include "main.h"
 
-void InitializeFS()
+void InitializeFS(int delete)
 {
 	int ret;
 	char HK_packets[] = {"HK_packets"};
@@ -9,9 +9,14 @@ void InitializeFS()
 	char mnlp_file[] ={"mnlp"};
 	char wod_file[] = {"wod"};
 	F_FILE *file;
+	char format;
 
 	hcc_mem_init(); /* Initialize the memory to be used by filesystem */
-	hcc_mem_delete ();
+
+	if (delete)
+	{
+		hcc_mem_delete ();
+	}
 
 	ret = fs_init(); /* Initialize the filesystem */
 	ASSERT( (ret == F_NO_ERROR ), "fs_init pb: %d\n\r", ret);
@@ -23,20 +28,25 @@ void InitializeFS()
 	ret = f_initvolume( 0, atmel_mcipdc_initfunc, 0 ); /* Initialize volID as safe */
 
 	//ret = f_format( 0, F_FAT32_MEDIA ); /* Format the filesystem */
-
-	file = f_open( HK_packets, "w" );
-	ret = f_close( file ); /* data is also considered safe when file is closed */
-	file = f_open( ADC_comm, "w" );
-	ret = f_close( file ); /* data is also considered safe when file is closed */
-	file = f_open( ADC_tlm, "w" );
-	ret = f_close( file ); /* data is also considered safe when file is closed */
-	file = f_open( mnlp_file, "w" );
-	ret = f_close( file ); /* data is also considered safe when file is closed */
-	file = f_open( wod_file, "w" );
-	ret = f_close( file ); /* data is also considered safe when file is closed */
-	//f_releaseFS(); /* release this task from the filesystem */
+	if (delete)
+	//if (0)
+	{
+		file = f_open( HK_packets, "w" );
+		ret = f_close( file ); /* data is also considered safe when file is closed */
+		file = f_open( ADC_comm, "w" );
+		ret = f_close( file ); /* data is also considered safe when file is closed */
+		file = f_open( ADC_tlm, "w" );
+		ret = f_close( file ); /* data is also considered safe when file is closed */
+		file = f_open( mnlp_file, "w" );
+		ret = f_close( file ); /* data is also considered safe when file is closed */
+		file = f_open( wod_file, "w" );
+		ret = f_close( file ); /* data is also considered safe when file is closed */
+	}
 
 }
+//f_releaseFS(); /* release this task from the filesystem */
+
+
 
 void DeInitializeFS()
 {
@@ -154,7 +164,7 @@ void delete_packets_from_file(int file_idx, unsigned long t)//this line size inc
 	char temp[] = "tmp.txt";
 	F_FILE* inFile;
 
-	unsigned char line [200]; // maybe you have to user better value here
+	unsigned char line [250]; // maybe you have to user better value here
 
 	int ret=0;
 
@@ -183,7 +193,7 @@ void delete_packets_from_file(int file_idx, unsigned long t)//this line size inc
 		break;
 	case 4:
 		file = mnlp_file;
-		size = sizeof(ADCS_Payload_Telemetry)+MNLP_DATA_SIZE+5;
+		size = MNLP_HEADER_SIZE+MNLP_DATA_SIZE+5;
 		break;
 	default:
 		return;
@@ -195,16 +205,17 @@ void delete_packets_from_file(int file_idx, unsigned long t)//this line size inc
 	{
 		printf("Open Error");
 	}
-
+	int ctr=0;
 	do
 	{
 		ret = f_read( line, 1 ,size, inFile);
 		packtime = convert_epoctime(line);
-		//print_array(line,line_size);
+
 		//printf("packet file is %lu start time is %lu ret is %d \n",packtime,t,ret);
 		if(t<packtime) break;
+		ctr=ctr+1;
 	}while(ret);
-
+	printf("deleted %d pacekts from file %s\n",ctr,file);
 	// write intermediate packet (if exists)
 
 	while (ret)
@@ -266,8 +277,10 @@ int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,uns
 
 void print_file(char filename[],int linesize)
 {
+	printf("printing file %s\n",filename);
 	F_FILE *file;
-	unsigned char buff[200]={0};
+	int ctr=0;
+	unsigned char buff[250]={0};
 	int ret_val;
 	file = f_open( filename, "r" ); // open file for reading, which is always safe
 	do{
@@ -276,12 +289,30 @@ void print_file(char filename[],int linesize)
 		{
 			print_array(buff,linesize);
 			printf("ret val is %d\n",ret_val);
+			ctr=ctr+1;
 		}
-	}
-	while (ret_val!=0);
+		else
+		{
+			printf("end file");
+		}
+	}while (ret_val!=0);
+
+	printf("A total of %d packets",ctr);
+
 	f_close(file);
 }
 
+
+
+void check_data_file()
+{
+	printf("mnlp:");
+	print_file("mnlp",MNLP_HEADER_SIZE+MNLP_DATA_SIZE+5);
+	printf("ADCS  telemetry:");
+	print_file("mnlp",MNLP_HEADER_SIZE+MNLP_DATA_SIZE+5);
+	printf("HK sat :");
+	print_file("mnlp",HK_SIZE+sizeof(ADCS_telemetry_data)+5);
+}
 
 void AllinAll()
 {
@@ -348,53 +379,6 @@ void AllinAll()
 	//}
 	kicktime(MAIN_THREAD);
 
-	/*t_start=t_start-30*365*24*3600;
-	t_start=t_start-24*3600*7;
-
-	for (i=0;i<4;i++)
-	{
-		printf("%d\n",i);
-		WritewithEpochtime(filename, 0, ToWrite_a, _BUFF_SIZE);
-		vTaskDelay(3000 / portTICK_RATE_MS);
-	}
-	Time_getUnixEpoch(&t_b);
-	t_b=t_b-30*365*24*3600;
-	t_b=t_b-24*3600*7;
-	for (i=0;i<4;i++)
-	{
-		printf("%d\n",i);
-		WritewithEpochtime(filename, 0, ToWrite_b, _BUFF_SIZE);
-		vTaskDelay(3000 / portTICK_RATE_MS);
-	}
-	Time_getUnixEpoch(&t_c);
-	t_c=t_c-30*365*24*3600;
-	t_c=t_c-24*3600*7;
-	for (i=0;i<4;i++)
-	{
-		printf("%d\n",i);
-		WritewithEpochtime(filename, 0, ToWrite_c, _BUFF_SIZE);
-		vTaskDelay(3000 / portTICK_RATE_MS);
-	}
-	Time_getUnixEpoch(&t_finish);
-	t_finish=t_finish-30*365*24*3600;
-	t_finish=t_finish-24*3600*7;
-
-	num_packets = find_number_of_packets(filename,_BUFF_SIZE+5,t_b,t_c,&start_idx);
-	printf("start time is %lu, finish time is %lu, num packets is %d, start idx is %d\n",t_start,t_finish,num_packets,start_idx);
-
-
-
-	// print only relevant packets
-	for (i=0;i<num_packets;i++)
-	{
-		FileReadIndex(filename,ToRead,_BUFF_SIZE+5,start_idx+i);
-		for (j=0;j<_BUFF_SIZE;j++)
-		{
-			printf("%0x ",ToRead[j]);
-		}
-		printf("l\n");
-	}
-	 */
 
 }
 

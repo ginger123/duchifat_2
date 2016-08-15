@@ -60,11 +60,11 @@ void vurc_getRxTelemTest(isisRXtlm *converted);
 void vurc_getTxTelemTest(isisTXtlm *converted);
 void init_trxvu(void);
 int TRX_sendFrame(unsigned char* data, unsigned char length);
-void act_upon_comm(unsigned char* in, unsigned short length);
+void act_upon_comm(unsigned char* in, unsigned short length,gom_eps_channelstates_t channels_state);
 void dump(void *arg);
 void Beacon(gom_eps_hk_t EpsTelemetry_hk);
 Boolean check_ants_deployed();
-void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix);
+void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix,gom_eps_channelstates_t channels_state);
 void enter_gs_mode(unsigned long *start_gs_time);
 void end_gs_mode();
 

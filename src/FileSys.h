@@ -3,7 +3,7 @@
 
 #include <hal/boolean.h>
 
-void InitializeFS();
+void InitializeFS(int delete);
 
 void DeInitializeFS();
 
@@ -21,6 +21,9 @@ void FileReadIndex(char Filename[],char ToWrite[], int _BUFF_SIZE, int index);
 
 void print_file(char filename[],int linesize);
 
+
+// test functions
 void AllinAll();
 
+void check_data_file();
 #endif

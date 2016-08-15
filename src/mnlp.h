@@ -21,6 +21,7 @@
 #define MNLP_LDP_LENGTH		142
 #define MNLP_OFF_CMD		0xF2
 #define MNLP_DATA_SIZE 		174
+#define MNLP_HEADER_SIZE    22
 
 
 #define MNLP_SCRIPT_ADDRESS 0x10000

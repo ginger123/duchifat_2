@@ -3,7 +3,6 @@
  */
 
 #include "main.h"
-#include "test.h"
 
 #define ENABLE_MAIN_TRACES 1
 #if ENABLE_MAIN_TRACES
@@ -28,10 +27,6 @@
 #define FALSE  0
 #endif
 
-#define TIME_ADDR 0x10BB
-#define TIME_SIZE 8
-
-#define AUTO_DEPLOYMENT_TIME 10
 
 global_param glb;
 xTaskHandle taskMNLPcomHandle,taskMNLPlistener,taskADCScomHandle,taskMainHandle,taskResetHandle;
@@ -47,6 +42,7 @@ void kicktime(int n)
 	Time_getUnixEpoch(&t);
 	timestamp[n]=t;
 }
+
 void initialize_satellite_time(Boolean deployed)
 {
 	unsigned char t[TIME_SIZE];
@@ -85,7 +81,7 @@ void ants_init(void)
 }
 
 
-void deploy_ants()
+void deploy_ants(gom_eps_channelstates_t channels_state)
 {
 	//our guess
 	/*IsisAntS_attemptDeployment(0,isisants_sideA,isisants_antenna1, isisants_normalDeployment,10);
@@ -94,13 +90,48 @@ void deploy_ants()
 	IsisAntS_attemptDeployment(0,isisants_sideB,isisants_antenna4, isisants_normalDeployment,10);*/
 
 	//this stuff is the sattelite subsystem's way of deploying
-		ISISantsSide side =  isisants_sideA;
-		unsigned char antennaSystemsIndex = 0;
-			IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
-			vTaskDelay(5 / portTICK_RATE_MS);
-			IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
-			vTaskDelay(5 / portTICK_RATE_MS);
-			IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
+	ISISantsSide side =  isisants_sideA;
+	unsigned char antennaSystemsIndex = 0;
+	IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
+	vTaskDelay(5 / portTICK_RATE_MS);
+	IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
+	vTaskDelay(5 / portTICK_RATE_MS);
+	IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
+
+	vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
+	IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
+	vTaskDelay(5 / portTICK_RATE_MS);
+	IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
+	vTaskDelay(5 / portTICK_RATE_MS);
+	IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
+
+	vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
+	kicktime(MAIN_THREAD);
+	// deploy booms
+	channels_state.fields.channel5V_2 = 1;
+	GomEpsSetOutput(0, channels_state); // Shuts down the payload
+
+	vTaskDelay(BOOM_DEPLOY_TIME*1000);
+	channels_state.fields.channel5V_2 = 0;
+	channels_state.fields.channel5V_3 = 1;
+	GomEpsSetOutput(0, channels_state); // Shuts down the payload
+	vTaskDelay(BOOM_DEPLOY_TIME*1000);
+
+	channels_state.fields.channel5V_3 = 0;
+	channels_state.fields.channel5V_2 = 1;
+	GomEpsSetOutput(0, channels_state); // Shuts down the payload
+
+	kicktime(MAIN_THREAD);
+
+	vTaskDelay(BOOM_DEPLOY_TIME*1000);
+	channels_state.fields.channel5V_2 = 0;
+	channels_state.fields.channel5V_3 = 1;
+	GomEpsSetOutput(0, channels_state); // Shuts down the payload
+	vTaskDelay(BOOM_DEPLOY_TIME*1000);
+
+	channels_state.fields.channel5V_3 = 0;
+	GomEpsSetOutput(0, channels_state); // Shuts down the payload
+
 }
 
 void Initialize_UART()
@@ -168,16 +199,17 @@ void initialize_subsystems(gom_eps_hk_t* EpsTelemetry_hk, gom_eps_channelstates_
 
 	//check if antenas deplyed
 	deployed = check_ants_deployed();
-	printf("deployed %d\n", (int)deployed);
+
 	//initialize satellite time
 	initialize_satellite_time(deployed);
 
 	//initialize EPS
 	if(!deployed)
 	{
-		unsigned char voltages[6] = {66,72,74,75,73,67}; //
+		unsigned char voltages[6] = {65,71,73,74,72,66}; //
 		FRAM_write(voltages, EPS_VOLTAGE_ADDR, EPS_VOLTAGE_SIZE);
 	}
+
 	EPS_Init(EpsTelemetry_hk, channels_state, vbatt_previous);
 
 	//initialize trxvu
@@ -190,34 +222,29 @@ void initialize_subsystems(gom_eps_hk_t* EpsTelemetry_hk, gom_eps_channelstates_
 	//initialize file system
 	if(!deployed)
 	{
-		InitializeFS();
+		InitializeFS(1);
 	}
 	else
 	{
-		f_enterFS();
+		InitializeFS(0);
 	}
 
 	//initializing global parameters
-	if(!deployed)
-	{
-		Set_Mute(TRUE);
-		Set_Mnlp_State(FALSE);
-	}
-	else
-	{
-		Set_Mute(FALSE);
-		Set_Mnlp_State(TRUE);
-	}
-
 	Initialized_GPIO();
-	//initialize ADCS
-	//ADCS_reset(&adcs_reset);
-	//SetAttEstMode(2);
+
 }
 
 void task_threadkeeper()
 {
 	unsigned long t;
+	int j;
+
+	// initialize time stamps
+	for(j=0;j<THREAD_TIMESTAMP_LEN;j++)
+	{
+		kicktime(j);
+	}
+
 	while(1)
 	{
 		Time_getUnixEpoch(&t);
@@ -241,11 +268,11 @@ void task_threadkeeper()
 			kicktime(MNLP_THREAD);
 
 		}
-		if(t > timestamp[2]+THREAD_TIMEOUT )
+		if(t > timestamp[2]+THREAD_LISTENER_TIMEOUT)
 		{
 			printf("---THREAD MNLP LISTENER FAILED. RESTARTING---\n");
 			vTaskDelete(taskMNLPlistener);
-			xTaskGenericCreate(mnlp_listener, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPlistener, NULL, NULL);
+			xTaskGenericCreate(mnlp_listener, (const signed char*)"taskMnlplistener", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPlistener, NULL, NULL);
 			kicktime(MNLPLISTENER_THREAD);
 		}
 		if(t > timestamp[3]+THREAD_TIMEOUT )
@@ -268,7 +295,7 @@ void task_threadkeeper()
 void task_reset()
 {
 	int i=0;
-	for(i=0;i<600;i++)
+	for(i=0;i<RESET_TIMEOUT;i++)
 		{
 		//printf("reset in %d seconds\n",30-i);
 		vTaskDelay(1000);
@@ -278,58 +305,65 @@ void task_reset()
 	while(1);
 }
 
+
+
 void taskMain()
 {
+
 	unsigned short vbatt_previous;
 
-	//ADCS_CUR_STATE ADc;
-	//ADc.flag = 0;
-	gom_eps_channelstates_t channels_state;
 	gom_eps_hk_t EpsTelemetry_hk;
-	isisRXtlm rxtlm;
 	ISIStrxvuRxTelemetry rx_tlm;
 	ISIStrxvuTxTelemetry tx_tlm;
 	ISISantsTelemetry ants_tlm;
 	unsigned long start_gs_time;
 	unsigned long time_now_unix;
 	unsigned long pt;
-	int j;
+	Boolean redeployed = 0;
+	gom_eps_channelstates_t channels_state;
+
 	Boolean deployed;
-
-	if (0) // only for cubesupport
-	{
-		WDT_startWatchdogKickTask(10 / portTICK_RATE_MS, FALSE);
-		I2C_start(66000, 10);
-		printf("EPS initializing\n");
-		EPS_Init(&EpsTelemetry_hk, &channels_state, &vbatt_previous);
-		printf("Done\n");
-
-		while (1)
-		{
-			vTaskDelay(500);
-		}
-	}
 
 	// Initialize subsystems
 	initialize_subsystems(&EpsTelemetry_hk, &channels_state, &vbatt_previous);
-	for(j=0;j<THREAD_TIMESTAMP_LEN;j++)
+
+
+	//end the bullshit
+	unsigned long start;
+	unsigned long now;
+	Time_getUnixEpoch(&start);
+	while(0)
 	{
-		kicktime(j);
+		Time_getUnixEpoch(&now);
+		GomEpsGetHkData_general(0, &EpsTelemetry_hk);
+		printf("time elapsed: %lu,vbatt is: %d , cursys id %d \n",now-start,EpsTelemetry_hk.fields.vbatt,EpsTelemetry_hk.fields.cursys);
+		vTaskDelay(1000);
 	}
+
+	// check if antennas are deployed
 	deployed = check_ants_deployed();
 
+	// read start time
 	FRAM_read((unsigned char *)&pt, TIME_ADDR, TIME_SIZE);
+
 	//initialize reset thread which resets every x seconds the satellite
 	xTaskGenericCreate(task_reset, (const signed char*)"taskReset", 1024, NULL, configMAX_PRIORITIES-2, &taskResetHandle, NULL, NULL);
+
+	if(deployed) redeployed=TRUE;
+
 	while(!deployed)
 	{
+		unsigned long rt;
+
+		// get House keeping power conditioning
 		GomEpsGetHkData_general(0, &EpsTelemetry_hk);
 		EPS_Power_Conditioning(&EpsTelemetry_hk, &vbatt_previous, &channels_state);
-		unsigned long rt;
+
+		// get time
 		Time_getUnixEpoch(&rt);
 		printf("rt%lu\n",rt);
 		printf("waited for love for %lu seconds \n", rt-pt);
-		if(rt - pt >= (unsigned long)5)
+		if(rt - pt >= (unsigned long)DEPLOY_TIME)
 		{
 			kicktime(MAIN_THREAD);
 			//deploy_ants();
@@ -343,19 +377,33 @@ void taskMain()
 
 	unsigned long pt_beacon = pt;
 	unsigned long pt_hk = pt;
+	unsigned long first_deploy = pt;
+
 	printf("love was given\n");
-	//AllinAll();
+
 	xTaskGenericCreate(taskmnlp, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPcomHandle, NULL, NULL);
-	xTaskGenericCreate(mnlp_listener, (const signed char*)"taskMnlp", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPlistener, NULL, NULL);
+	xTaskGenericCreate(mnlp_listener, (const signed char*)"taskMnlplistener", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPlistener, NULL, NULL);
 	xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
 	xTaskGenericCreate(task_threadkeeper, (const signed char*)"taskThread", 1024, NULL, configMAX_PRIORITIES-2, &taskThreadCheck, NULL, NULL);
+	vTaskDelay(1500);
+	kicktime(MAIN_THREAD);
+	vTaskDelay(1500);
+	kicktime(MAIN_THREAD);
+	vTaskDelay(1500);
+	kicktime(MAIN_THREAD);
+	vTaskDelay(1500);
+	kicktime(MAIN_THREAD);
+	vTaskDelay(1500);
+	kicktime(MAIN_THREAD);
+	//check_data_file();
+
+
 
 	while(1)
 	{
 		kicktime(MAIN_THREAD);
-		// 1. get telemetry trxvu
-		//vurc_getRxTelemTest(&rxtlm);
 
+		// 1. get telemetry trxvu
 		IsisTrxvu_rcGetTelemetryAll(0, &rx_tlm);
 
 		IsisTrxvu_tcGetTelemetryAll(0,&tx_tlm);
@@ -368,54 +416,47 @@ void taskMain()
 		// 3. Take unix time
 		Time_getUnixEpoch(&time_now_unix);
 
-		if(time_now_unix - pt_hk >= 10)
+		// 4. redeploy
+		if ( (time_now_unix-first_deploy>REDEPLOY_TIME) && (!redeployed))
 		{
-			printf("sending HK packets\n");
-			pt_hk = time_now_unix;
-			//HK_packet_build_save(EpsTelemetry_hk,rx_tlm,tx_tlm,ants_tlm);
-			eslADCS_telemetry_Time_Power_temp();
-			//idtlm();
-			printf("local time: %lu bat volt %d    states  %x\n",time_now_unix,EpsTelemetry_hk.fields.vbatt, states);
+			printf("re-deploy\n");
+			// deploy_ants(channels_state);
+			redeployed = 1;
 		}
-		// 3. get telemetry ADCS
+
+		// save telemetry every SAVE_TELEMETRY_TIME seconds
+		if(time_now_unix - pt_hk >= SAVE_TELEMETRY_TIME)
+		{
+			//printf("saving HK packets\n");
+			pt_hk = time_now_unix;
+			//printf("***** HK packet: time of packet is %lu\n",time_now_unix);
+			HK_packet_build_save(EpsTelemetry_hk,rx_tlm,tx_tlm,ants_tlm);
+			//test_commissioning_packet();
+			//test_ADCS_packet();
+			//printf("***** ADCS telemetry packet: time of packet is %lu\n",time_now_unix);
+			eslADCS_telemetry_Time_Power_temp();
+
+		}
 
 		// 4. EPS power conditioning
 		EPS_Power_Conditioning(&EpsTelemetry_hk, &vbatt_previous, &channels_state);
 
-		trxvu_logic(&start_gs_time, &time_now_unix);
+		// 5. check for commands
+		trxvu_logic(&start_gs_time, &time_now_unix,channels_state);
 
-		// 6. mNLP
-		//if(!(states & STATE_GS))
-		//{
-		// enter Mnlp code here!!!!
-		//}
-		if(time_now_unix - pt >= 70)
+		// 6. send beacon
+		if(time_now_unix - pt_beacon >= BEACON_TIME)
 		{
-			pt = time_now_unix;
-			FRAM_write((unsigned char *)&time_now_unix,TIME_ADDR, TIME_SIZE);
-
-			// check tasks operation
-			check_task(&taskMNLPcomHandle,taskmnlp, (const signed char*)"taskMnlp", NULL);
-			check_task(&taskMNLPlistener,mnlp_listener, (const signed char*)"taskMnlp", NULL);
-			check_task(&taskADCScomHandle,task_adcs_commissioning, (const signed char*)"task_adcs_com", NULL);
-
-		}
-		if(time_now_unix - pt_beacon >= BACON_TIME)
-		{
-			//dumpparam[0] = 3;
-			//convert_time_array(time_now_unix-60,&dumpparam[1]);
-			//convert_time_array(time_now_unix+10,&dumpparam[6]);
-			//dump(dumpparam);
-
-
+			printf("local time: %lu bat volt %d    states  %x\n",time_now_unix,EpsTelemetry_hk.fields.vbatt, states);
+			Beacon(EpsTelemetry_hk);
 			pt_beacon = time_now_unix;
-
-			//Beacon(EpsTelemetry_hk);
 		}
 
+		// update time
+		FRAM_write((unsigned char *)&time_now_unix,TIME_ADDR, TIME_SIZE);
 
-		vTaskDelay(2000 / portTICK_RATE_MS);
-		//add data to files
+		vTaskDelay(MAIN_ITERATION_TIME / portTICK_RATE_MS);
+
 	}
 }
 
@@ -456,12 +497,3 @@ int main() {
 	return 0;
 }
 
-void check_task(xTaskHandle *handle,pdTASK_CODE task, const signed char *name, void *pvParameters)
-{
-	eTaskState task_state = eTaskGetState(handle);
-	if(task_state == eSuspended)
-	{
-		vTaskDelete(*handle);
-		xTaskGenericCreate(task, name, 1024, pvParameters, configMAX_PRIORITIES-2, handle, NULL, NULL);
-	}
-}

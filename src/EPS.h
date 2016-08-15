@@ -10,9 +10,8 @@
 #endif
 
 #define HK_SIZE 62
-#define EPS_VOLTAGE_ADDR 0x1000
 #define EPS_SID 166
-#define EPS_VOLTAGE_SIZE 6
+
 
 #define HEATER_ON 0
 #define HEATER_OFF 10
@@ -62,6 +61,11 @@ void Cruse(gom_eps_channelstates_t* channels_state);
 void Safe(gom_eps_channelstates_t* channels_state);
 void Write_F_EPS_TLM(gom_eps_hk_t* EPS_CUR_TLM);
 void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxvuTxTelemetry tlmTX, ISISantsTelemetry antstlm);
+void set_heater_values(char heater_params[2]);
+
+
+// for testing only
+void print_config(eps_config_t config_data);
 
 
 #endif /* EPS_H_ */

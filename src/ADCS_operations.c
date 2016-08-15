@@ -77,12 +77,13 @@ void eslADCS_getEstimatedAngRates(adcs_angrate_t* ang_rates)
 {
 		unsigned char data[6];
 		unsigned char comm= 146;
+		//unsigned char comm= 167;
 		I2C_write(0x12,&comm,1);
 		//ADCS_command(comm, NULL, 0);
 		vTaskDelay(5 / portTICK_RATE_MS);
 		I2C_read(0x12,data,6);
-		printf("estimated angular rates\n");
-		print_array(data,6);
+		//printf("estimated angular rates\n");
+		//print_array(data,6);
 
 		ang_rates->fields.x_angrate = data[1]<<8;
 		ang_rates->fields.x_angrate += data[0];
@@ -100,8 +101,8 @@ void eslADCS_getSensorRates(adcs_angrate_t* sen_rates)
 	//ADCS_command(comm, NULL, 0);
 	vTaskDelay(5 / portTICK_RATE_MS);
 	I2C_read(0x12,data,6);
-	printf("get estimated sensor rates\n");
-	print_array(data,6);
+	//printf("get estimated sensor rates\n");
+	//print_array(data,6);
 	sen_rates->fields.x_angrate = data[1]<<8;
 	sen_rates->fields.x_angrate += data[0];
 	sen_rates->fields.y_angrate = data[3]<<8;
@@ -135,7 +136,7 @@ void eslADCS_getMagneticFieldVec(adcs_magfieldvec_t* mag_field)
 	//ADCS_command(comm, NULL, 0);
 	vTaskDelay(5 / portTICK_RATE_MS);
 	I2C_read(0x12,data,6);
-	printf("magnetic field vector\n");
+	//printf("magnetic field vector\n");
 	print_array(data,6);
 
 	mag_field->fields.x_magfield = data[1]<<8;
@@ -303,6 +304,7 @@ void eslADCS_getCurrentTime(adcs_unixtime_t* unix_time)
 	unix_time->fields.unix_time_sec += data[3];
 }
 
+
 void eslADCS_getPwrTempTlm(adcs_pwrtemptlm_t* pwrtemp_tlm)
 {
 	unsigned char comm = 135;
@@ -311,24 +313,24 @@ void eslADCS_getPwrTempTlm(adcs_pwrtemptlm_t* pwrtemp_tlm)
 	vTaskDelay(5 / portTICK_RATE_MS);
 	I2C_read(0x12, data, 18);
 
-	//print_array(data,18);
+	print_array(data,18);
 
-	pwrtemp_tlm->fields.csense_3v3curr = data[0] << 8;
-	pwrtemp_tlm->fields.csense_3v3curr += data[1];
+	pwrtemp_tlm->fields.csense_3v3curr = data[0];
+	pwrtemp_tlm->fields.csense_3v3curr += data[1] << 8;
 	pwrtemp_tlm->fields.csense_nadirSRAMcurr = data[2];
 	pwrtemp_tlm->fields.csense_sunSRAMcurr = data[3];
-	pwrtemp_tlm->fields.arm_cpuTemp = data[4] << 8;
-	pwrtemp_tlm->fields.arm_cpuTemp += data[5];
-	pwrtemp_tlm->fields.ccontrol_3v3curr = data[6] << 8;
-	pwrtemp_tlm->fields.ccontrol_3v3curr += data[7];
-	pwrtemp_tlm->fields.ccontrol_5Vcurr = data[8] << 8;
-	pwrtemp_tlm->fields.ccontrol_5Vcurr += data[9];
-	pwrtemp_tlm->fields.ccontrol_Vbatcurr = data[10] << 8;
-	pwrtemp_tlm->fields.ccontrol_Vbatcurr += data[11];
-	pwrtemp_tlm->fields.magtorquer_curr = data[12] << 8;
-	pwrtemp_tlm->fields.magtorquer_curr += data[13];
-	pwrtemp_tlm->fields.momentum_wheelcurr = data[14] << 8;
-	pwrtemp_tlm->fields.momentum_wheelcurr += data[15];
+	pwrtemp_tlm->fields.arm_cpuTemp = data[4] ;
+	pwrtemp_tlm->fields.arm_cpuTemp += data[5]<< 8;
+	pwrtemp_tlm->fields.ccontrol_3v3curr = data[6];
+	pwrtemp_tlm->fields.ccontrol_3v3curr += data[7] << 8;
+	pwrtemp_tlm->fields.ccontrol_5Vcurr = data[8];
+	pwrtemp_tlm->fields.ccontrol_5Vcurr += data[9] << 8;
+	pwrtemp_tlm->fields.ccontrol_Vbatcurr = data[10];
+	pwrtemp_tlm->fields.ccontrol_Vbatcurr += data[11] << 8;
+	pwrtemp_tlm->fields.magtorquer_curr = data[12];
+	pwrtemp_tlm->fields.magtorquer_curr += data[13] << 8;
+	pwrtemp_tlm->fields.momentum_wheelcurr = data[14];
+	pwrtemp_tlm->fields.momentum_wheelcurr += data[15] << 8;
 	pwrtemp_tlm->fields.ratesensor_temp = data[16];
 	pwrtemp_tlm->fields.magnetometer_temp = data[17];
 
@@ -342,6 +344,7 @@ void eslADCS_telemetry_Time_Power_temp()
 	eslADCS_getPwrTempTlm(&pwrtemp_tlm);
 	ADCS_get_status(telemetry_data.status);
 	telemetry_data.sid=159;
+	telemetry_data.stage = adcs_stage;
 	telemetry_data.csense_3v3curr = pwrtemp_tlm.fields.ccontrol_3v3curr;
 
 	telemetry_data.csense_nadirSRAMcurr = pwrtemp_tlm.fields.csense_nadirSRAMcurr;
@@ -361,6 +364,7 @@ void eslADCS_telemetry_Time_Power_temp()
 	//printf("arm cputemp %d\n",telemetry_data.arm_cpuTemp);
 	//printf("telemtry 3v3curr %d\n",telemetry_data.ccontrol_3v3curr);
 	WritewithEpochtime("adcs_tlm_file",0,(char *) &telemetry_data, sizeof(ADCS_telemetry_data));
+	print_send_ADCS_telemetry_packet(telemetry_data);
 }
 
 void ADCS_get_status(unsigned char *status)
@@ -421,13 +425,16 @@ void eslADCS_getRawMagnetometerMeas(adcs_raw_magmeter_t* raw_mag)
 	unsigned char data[6];
 	unsigned char comm =  167;
 	I2C_write(0x12, &comm, 1);
+	vTaskDelay(5);
 	I2C_read(0x12, data, 6);
-	raw_mag->fields.magnetic_x = data[0] << 8;
-	raw_mag->fields.magnetic_x += data[1];
-	raw_mag->fields.magnetic_y = data[2] << 8;
-	raw_mag->fields.magnetic_y += data[3];
-	raw_mag->fields.magnetic_z = data[4] << 8;
-	raw_mag->fields.magnetic_z += data[5];
+	raw_mag->fields.magnetic_x = data[0];
+	raw_mag->fields.magnetic_x += data[1] << 8;
+	raw_mag->fields.magnetic_y = data[2];
+	raw_mag->fields.magnetic_y += data[3] << 8;
+	raw_mag->fields.magnetic_z = data[4];
+	raw_mag->fields.magnetic_z += data[5] << 8;
+	printf("raw magnetometer values:\n");
+	print_array(data,6);
 }
 
 void eslADCS_getCurrentPosition(adcs_currstate_t* current_state)
@@ -436,16 +443,26 @@ void eslADCS_getCurrentPosition(adcs_currstate_t* current_state)
 	unsigned char comm= 136;
 	I2C_write(0x12,&comm,1);
 
-	vTaskDelay(50 / portTICK_RATE_MS);
+	vTaskDelay(5 / portTICK_RATE_MS);
 
 	I2C_read(0x12,data,48);
 
-	current_state->fields.position_x = data[40]<<8;
-	current_state->fields.position_x += data[41];
-	current_state->fields.position_y = data[42]<<8;
-	current_state->fields.position_y += data[43];
-	current_state->fields.position_z = data[44]<<8;
-	current_state->fields.position_z += data[45];
+	current_state->fields.position_x = data[30];
+	current_state->fields.position_x += data[31]<<8;
+	current_state->fields.position_y = data[32];
+	current_state->fields.position_y += data[33]<<8;
+	current_state->fields.position_z = data[34];
+	current_state->fields.position_z += data[35]<<8;
+}
+
+void print_payload_header(adcs_angrate_t ang_rates, adcs_attangles_t att_angles,adcs_currstate_t current_state,unsigned long t)
+{
+
+	// print the header
+	printf("epoch time: %lu\n",t);
+	printf("estimated attitude angles -  roll: %f, pitch: %f, yaw %f [deg]\n",0.01*att_angles.fields.roll,0.01*att_angles.fields.pitch,0.01*att_angles.fields.yaw);
+	printf("estimated angular rates - rolldot: %f pitchdot: %f yawdot %f [deg/s]\n",0.01*ang_rates.fields.x_angrate,0.01*ang_rates.fields.y_angrate,0.01*ang_rates.fields.z_angrate);
+	printf("position - X: %f, Y: %f, Z: %f\n",0.25*current_state.fields.position_x,0.25*current_state.fields.position_y,0.25*current_state.fields.position_z);
 }
 
 void ADCS_payload_Telemetry(ADCS_Payload_Telemetry *Payload_Telemtry)
@@ -453,19 +470,24 @@ void ADCS_payload_Telemetry(ADCS_Payload_Telemetry *Payload_Telemtry)
 	adcs_angrate_t ang_rates;
 	adcs_attangles_t att_angles;
 	adcs_currstate_t current_state;
+	unsigned long t;
 
+	Time_getUnixEpoch(&t);
+	Payload_Telemtry->epoch_time = (int)t-UNIX_EPOCH_TIME_DIFF;
 	eslADCS_getEstimatedAttAngles(&att_angles);
 	Payload_Telemtry->estimated_attitude_angles[0] = att_angles.fields.roll;
 	Payload_Telemtry->estimated_attitude_angles[1] = att_angles.fields.pitch;
 	Payload_Telemtry->estimated_attitude_angles[2] = att_angles.fields.yaw;
 	eslADCS_getEstimatedAngRates(&ang_rates);
-	Payload_Telemtry->estimated_anglar_rates[0] = ang_rates.fields.x_angrate;
-	Payload_Telemtry->estimated_anglar_rates[1] = ang_rates.fields.y_angrate;
-	Payload_Telemtry->estimated_anglar_rates[2] = ang_rates.fields.z_angrate;
+	Payload_Telemtry->estimated_anglar_rates[0] = ang_rates.fields.x_angrate*10;
+	Payload_Telemtry->estimated_anglar_rates[1] = ang_rates.fields.y_angrate*10;
+	Payload_Telemtry->estimated_anglar_rates[2] = ang_rates.fields.z_angrate*10;
 	eslADCS_getCurrentPosition(&current_state);
-	Payload_Telemtry->current_Position[0]= current_state.fields.position_x;
-	Payload_Telemtry->current_Position[1]= current_state.fields.position_y;
-	Payload_Telemtry->current_Position[2]= current_state.fields.position_z;
+	Payload_Telemtry->current_Position[0]= current_state.fields.position_x/2;
+	Payload_Telemtry->current_Position[1]= current_state.fields.position_y/2;
+	Payload_Telemtry->current_Position[2]= current_state.fields.position_z/2;
+
+	print_payload_header(ang_rates,att_angles,current_state,t);
 }
 
 
@@ -584,14 +606,17 @@ void Build_PayloadPacket(unsigned char *packet)
 	char sd_file_name[] = {"mnlp"};
 
 	ADCS_Payload_Telemetry mnlp_header;
+	mnlp_header.demo = 0xaaaa;
 	//for (i=0;i<174;i++)
 	//{
 	//	mnlp_pck.mnlp_data[i] = packet[i];
 	//}
 	ADCS_payload_Telemetry(&mnlp_header);
 
-
-	WritewithEpochtime(sd_file_name, 0, (char *)&mnlp_header, sizeof(ADCS_Payload_Telemetry));
+	printf("full packet header size %d:\n",sizeof(ADCS_Payload_Telemetry));
+	print_array((unsigned char *)&mnlp_header,MNLP_HEADER_SIZE);
+	print_array(packet,MNLP_DATA_SIZE);
+	WritewithEpochtime(sd_file_name, 0, (char *)&mnlp_header, MNLP_HEADER_SIZE);
 	FileWrite(sd_file_name, 0, ( char *)packet, MNLP_DATA_SIZE);
 
 }
@@ -619,16 +644,22 @@ void ADCS_update_unix_time(unsigned long t)
 void ADCS_update_tle(unsigned char* tle)
 {
 	int i;
+	ADCS_Payload_Telemetry Payload_Telemtry;
 
-	unsigned char temp_tle[] = {0x3F,0xFB,0x58,0xE2,0x19,0x65,0x2B,0xD4	  ,0x3F,0x56,0x34,0xF5,0xAB,0x12,0x67,0xE2  ,0x3F,0xFA,0x66,0x66,0x66,0x66,0x66,0x66 ,0x3F,0xC1,0x37,0x4B,0xC6,0xA7,0xEF,0x9E  ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x3F ,0xB0 ,0xA2 ,0x87 ,0x7E ,0xE4 ,0xE2 ,0x6D ,0x40 ,0x18 ,0x9A ,0x9F ,0xBE ,0x76 ,0xC8 ,0xB4 ,0x41 ,0xD5 ,0xDF ,0x63 ,0x91 ,0x00 ,0x00 ,0x00 ,0xAD ,0x79 ,0x5D ,0x77};
-
+	//unsigned char temp_tle[] = {0x3F,0xFB,0x58,0xE2,0x19,0x65,0x2B,0xD4	  ,0x3F,0x56,0x34,0xF5,0xAB,0x12,0x67,0xE2  ,0x3F,0xFA,0x66,0x66,0x66,0x66,0x66,0x66 ,0x3F,0xC1,0x37,0x4B,0xC6,0xA7,0xEF,0x9E  ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x3F ,0xB0 ,0xA2 ,0x87 ,0x7E ,0xE4 ,0xE2 ,0x6D ,0x40 ,0x18 ,0x9A ,0x9F ,0xBE ,0x76 ,0xC8 ,0xB4 ,0x41 ,0xD5 ,0xDF ,0x63 ,0x91 ,0x00 ,0x00 ,0x00 ,0xAD ,0x79 ,0x5D ,0x77};
+	printf("this is the tle before switch endianess\n");
+	print_array(tle,64);
 	for(i=0;i<8;i++)//8 parameters to go over
 	{
-		double_little_endian(temp_tle+8*i);
+		double_little_endian(tle+8*i);
 	}
-	printf("this is the tle that we are sending to adcs\n");
-	print_array(temp_tle,64);
-	ADCS_command(64,temp_tle,64);
+	printf("this is the tle after switch endianess\n");
+
+	//print_array(tle,64);
+	ADCS_command(64,tle,64);
+
+	// for testimng
+	ADCS_payload_Telemetry(&Payload_Telemtry);
 }
 
 void ADCS_set_magnetometer_config(unsigned char mag_config_set[30])
@@ -638,9 +669,7 @@ void ADCS_set_magnetometer_config(unsigned char mag_config_set[30])
 	int i;
 	adcs_calibration calibration;
 
-	I2C_write(0x12,&set_comm,1);
-	vTaskDelay(5);
-	I2C_read(0x12, mag_config_set, 30);
+	ADCS_command(set_comm,mag_config_set,30);
 
 	I2C_write(0x12, &save_com, 1);
 
@@ -668,19 +697,18 @@ void get_sat_llh_pos(adcs_refllhcoord_t *llh_in)
 	printf("altitude is: %f\n",  (float)llh_in->fields.altitude * 0.02);
 }
 
-adcs_reset(unsigned char type)
+void adcs_reset(unsigned char type)
 {
 	unsigned char reset_array[2];
 	reset_array[0]= 0x01;
 	reset_array[1] = type;
 
-	I2C_write(0x12,&reset_array,2);
+	I2C_write(0x12,reset_array,2);
 	printf("delay for 15 seconds\n");
 	vTaskDelay(15000);
-
 }
 
-adcs_set_estimation_param()
+void adcs_set_estimation_param()
 {
 }
 
@@ -702,4 +730,141 @@ void eslADCS_getSatelliteVelocityVec(adcs_ecirefvel_t* sat_vel)
 	printf("x velocity: %d", sat_vel->fields.x_velocity);
 	printf(" y velocity: %d", sat_vel->fields.y_velocity);
 	printf(" z velocity: %d", sat_vel->fields.z_velocity);
+}
+
+void print_send_ADCS_telemetry_packet(ADCS_telemetry_data telemetry_data)
+{
+	ccsds_packet ccs_packet;
+	int end_offset = 12;
+
+	printf("current cubesence 3.3 %f mA\n",telemetry_data.csense_3v3curr*0.1);
+	printf("current Nadir SRAM 3.3 %f mA\n",(float)telemetry_data.csense_nadirSRAMcurr*10);
+	printf("current nadir SRAM current %f mA\n",(float)telemetry_data.csense_sunSRAMcurr*10);
+	printf(" temp ARM CPU %d C\n",telemetry_data.arm_cpuTemp);
+	printf("current cubecontrol 3.3 %f mA\n",telemetry_data.ccontrol_3v3curr*0.48828);
+	printf("current cubecontrol 5 %f mA\n",telemetry_data.ccontrol_5Vcurr*0.48828);
+	printf("current VBatt 5 %f mA\n",telemetry_data.ccontrol_Vbatcurr*0.48828);
+	printf("magnetometer current %f mA\n",telemetry_data.magtorquer_curr*0.1);
+	printf("wheel current %f mA\n",telemetry_data.momentum_wheelcurr*0.01);
+	printf("temp rate sensor %d C\n",telemetry_data.ratesensor_temp);
+	printf("magnetometer %d C\n",telemetry_data.magnetometer_temp);
+	printf("general status %x,%x,%x,%x,%x,%x\n",telemetry_data.status[0],telemetry_data.status[1],telemetry_data.status[2],telemetry_data.status[3],telemetry_data.status[4],telemetry_data.status[5]);
+
+	// send packet
+
+	ccs_packet.apid=10;
+	ccs_packet.srvc_type = 3;
+	ccs_packet.srvc_subtype = 25;
+	update_time(ccs_packet.c_time);
+	ccs_packet.len = sizeof(ADCS_telemetry_data);
+	ccs_packet.data = (unsigned char*)&telemetry_data;
+
+	switch_endian(ccs_packet.data + end_offset, sizeof(ADCS_telemetry_data) - end_offset);
+	//send_SCS_pct(ccs_packet);
+
+}
+
+void print_commissioning_packet(ADCS_comissioning_data commissioning_data)
+{
+    //printf("angular rates raw: %f pitch %f yaw %f deg/s\n",commissioning_data.estimated_anglar_rates[0]*0.01,commissioning_data.estimated_anglar_rates[1]*0.01,commissioning_data.estimated_anglar_rates[2]*0.01);
+	printf("stage is %d\n",(int)commissioning_data.stage);
+	printf("estimated angular rates: %f pitch %f yaw %f deg/s\n",commissioning_data.estimated_anglar_rates[0]*0.01,commissioning_data.estimated_anglar_rates[1]*0.01,commissioning_data.estimated_anglar_rates[2]*0.01);
+    //printf("attitude angles raw: %f pitch %f yaw %f deg\n",commissioning_data.estimated_attitude_angles[0]*0.01,commissioning_data.estimated_attitude_angles[1]*0.01,commissioning_data.estimated_attitude_angles[2]*0.01);
+	printf("estimated attitude angles: %f pitch %f yaw %f deg\n",commissioning_data.estimated_attitude_angles[0]*0.01,commissioning_data.estimated_attitude_angles[1]*0.01,commissioning_data.estimated_attitude_angles[2]*0.01);
+    printf("Rate sensor rates: X: %f Y: %f Z: %f deg/s\n",commissioning_data.sensor_rates[0]*0.01,commissioning_data.sensor_rates[1]*0.01,commissioning_data.sensor_rates[2]*0.01);
+
+    printf("CSS (Cos sun) 1: %d, 2: %d 3: %d 4: %d 5: %d 6: %d\n",commissioning_data.RAW_CSS[0],commissioning_data.RAW_CSS[1],commissioning_data.RAW_CSS[2],commissioning_data.RAW_CSS[3],commissioning_data.RAW_CSS[4],commissioning_data.RAW_CSS[5]);
+    printf("Nadir Azimuth angle: %f, Elevation angle: %f, Busy status: %x, detection result: %x\n",commissioning_data.RAW_nadir_sensors[0]*0.01,commissioning_data.RAW_nadir_sensors[1]*0.01,commissioning_data.RAW_nadir_sensors[2],commissioning_data.RAW_nadir_sensors[3]);
+    printf("Sun Azimuth angle: %f, Elevation angle: %f, Busy status: %x, detection result: %x\n",commissioning_data.RAW_sun_sensors[0]*0.01,commissioning_data.RAW_sun_sensors[1]*0.01,commissioning_data.RAW_sun_sensors[2],commissioning_data.RAW_sun_sensors[3]);
+
+    printf("position: Longitude: %f Latitude: %f, Altitude %f deg\n",commissioning_data.sattelite_position[0]*0.01,commissioning_data.sattelite_position[1]*0.01,commissioning_data.sattelite_position[2]*0.02);
+    printf("Velocity: X: %f Y: %f, Z %f km/s\n",commissioning_data.sattelite_velocity[0]*0.001,commissioning_data.sattelite_velocity[1]*0.001,commissioning_data.sattelite_velocity[2]*0.001);
+    printf("Magnetic field vector - X: %d Y - %d Z - %d nT\n",commissioning_data.magnetic_field_vactor[0]*10,commissioning_data.magnetic_field_vactor[1]*10,commissioning_data.magnetic_field_vactor[2]*10);
+    printf("wheel speed X: %d, Y: %d, Z: %d rpm\n",commissioning_data.wheel_speed_estimation[0],commissioning_data.wheel_speed_estimation[1],commissioning_data.wheel_speed_estimation[2]);
+    printf("Mtq commands X: %f, Y: %f, Z: %f\n",commissioning_data.Magnetorquer_commands[0]*0.001,commissioning_data.Magnetorquer_commands[1]*0.001,commissioning_data.Magnetorquer_commands[2]*0.001);
+}
+
+void test_ADCS_packet()
+{
+	ADCS_telemetry_data telemetry_data;
+	telemetry_data.sid = 159;
+	telemetry_data.ratesensor_temp = 1;
+	telemetry_data.magnetometer_temp = 2;
+	telemetry_data.csense_nadirSRAMcurr = 3;
+	telemetry_data.csense_sunSRAMcurr = 4;
+	telemetry_data.stage = 10;
+	telemetry_data.status[0] = 5;
+	telemetry_data.status[1] = 6;
+	telemetry_data.status[2] = 7;
+	telemetry_data.status[3] = 8;
+	telemetry_data.status[4] = 9;
+	telemetry_data.status[5] = 10;
+	telemetry_data.csense_3v3curr = 11;
+	telemetry_data.arm_cpuTemp = 12;
+	telemetry_data.ccontrol_3v3curr = 13;
+	telemetry_data.ccontrol_5Vcurr = 14;
+	telemetry_data.ccontrol_Vbatcurr = 15;
+	telemetry_data.magtorquer_curr = 16;
+	telemetry_data.momentum_wheelcurr = 17;
+	print_send_ADCS_telemetry_packet(telemetry_data);
+}
+void test_commissioning_packet()
+{
+	ADCS_comissioning_data adc_dat;
+	adc_dat.sid= 201;
+	adc_dat.stage= 10;
+	adc_dat.estimated_anglar_rates[0]=1;
+	adc_dat.estimated_anglar_rates[1]=2;
+	adc_dat.estimated_anglar_rates[2]=3;
+	adc_dat.magnetic_field_vactor[0]=4;
+	adc_dat.magnetic_field_vactor[1]=5;
+	adc_dat.magnetic_field_vactor[2]=6;
+	adc_dat.sensor_rates[0]=7;
+	adc_dat.sensor_rates[1]=8;
+	adc_dat.sensor_rates[2]=9;
+	adc_dat.RAW_Magnetometer[0]=10;
+	adc_dat.RAW_Magnetometer[1]=11;
+	adc_dat.RAW_Magnetometer[2]=12;
+	adc_dat.Magnetorquer_commands[0]=13;
+	adc_dat.Magnetorquer_commands[1]=14;
+	adc_dat.Magnetorquer_commands[2]=15;
+	adc_dat.estimated_attitude_angles[0]=16;
+	adc_dat.estimated_attitude_angles[1]=17;
+	adc_dat.estimated_attitude_angles[2]=18;
+	adc_dat.sattelite_position[0]=19;
+	adc_dat.sattelite_position[1]=20;
+	adc_dat.sattelite_position[2]=21;
+	adc_dat.sattelite_velocity[0]=22;
+	adc_dat.sattelite_velocity[1]=23;
+	adc_dat.sattelite_velocity[2]=24;
+	adc_dat.RAW_nadir_sensors[0]=25;
+	adc_dat.RAW_nadir_sensors[1]=26;
+	adc_dat.RAW_nadir_sensors[2]=27;
+	adc_dat.RAW_nadir_sensors[3]=28;
+	adc_dat.RAW_sun_sensors[0]=29;
+	adc_dat.RAW_sun_sensors[1]=30;
+	adc_dat.RAW_sun_sensors[2]=31;
+	adc_dat.RAW_sun_sensors[3]=32;
+	adc_dat.wheel_speed_estimation[0]=33;
+	adc_dat.wheel_speed_estimation[1]=34;
+	adc_dat.wheel_speed_estimation[2]=35;
+	adc_dat.wheel_speed_command[0]=36;
+	adc_dat.wheel_speed_command[1]=37;
+	adc_dat.wheel_speed_command[2]=38;
+	adc_dat.RAW_CSS[0]=39;
+	adc_dat.RAW_CSS[1]=40;
+	adc_dat.RAW_CSS[2]=41;
+	adc_dat.RAW_CSS[3]=42;
+	adc_dat.RAW_CSS[4]=43;
+	adc_dat.RAW_CSS[5]=44;
+	print_commissioning_packet(adc_dat);
+	switch_endian(((unsigned char*)&adc_dat)+8,sizeof(ADCS_comissioning_data)-8);
+	ccsds_packet ccd;
+	ccd.apid=10;
+	ccd.srvc_type=3;
+	ccd.srvc_subtype=25;
+	ccd.data=(unsigned char*) &adc_dat;
+	ccd.len = sizeof(ADCS_comissioning_data);
+	update_time(ccd.c_time);
+	send_SCS_pct(ccd);
 }
