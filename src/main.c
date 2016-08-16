@@ -51,19 +51,24 @@ void initialize_satellite_time(Boolean deployed)
 	if(!deployed)
 	{
 		Time_getUnixEpoch(&rt);
-		FRAM_write((unsigned char*)&rt,TIME_ADDR,TIME_SIZE);
+		printf("initial activation - save time %lu:\n",rt);
+
+		convert_time_array(rt, t);
+		FRAM_write(t,TIME_ADDR,TIME_SIZE);
+
+		// for testing
+		FRAM_read(t, TIME_ADDR,TIME_SIZE);
+		print_array(t,5);
+		rt = convert_epoctime(t);
+		printf("time saved %lu:\n",rt);
 	}
 	else
 	{
 		FRAM_read(t, TIME_ADDR,TIME_SIZE);
-		printf("FRAM time: %c,%c,%c,%c,%c,%c,%c,%c\n",t[0],t[1],t[2],t[3],t[4],t[5],t[6],t[7]);
-		int k = 1;
-		int i;
-		for (i=0;i<TIME_SIZE;i++)
-		{
-			rt = rt+t[7-i]*k;
-			k*=256;
-		}
+		print_array(t,5);
+		rt = convert_epoctime(t);
+
+		printf("secondary activation - read from memory time %lu\n",rt);
 		Time_setUnixEpoch(rt);
 	}
 }
@@ -197,17 +202,29 @@ void initialize_subsystems(gom_eps_hk_t* EpsTelemetry_hk, gom_eps_channelstates_
 	//init antenna
 	ants_init();
 
-	//check if antenas deplyed
-	deployed = check_ants_deployed();
+	//check if first activation
+	FRAM_read((unsigned char *)&not_first_activation, FIRST_ACTIVATION_ADDR, 4);
+	deployed = not_first_activation;
 
 	//initialize satellite time
 	initialize_satellite_time(deployed);
 
-	//initialize EPS
+
 	if(!deployed)
 	{
+		//initialize EPS voltages and states to default values
 		unsigned char voltages[6] = {65,71,73,74,72,66}; //
 		FRAM_write(voltages, EPS_VOLTAGE_ADDR, EPS_VOLTAGE_SIZE);
+
+		states = STATE_MNLP_ON_GROUND;
+	}
+	else
+	{
+		// read states values
+		FRAM_read(&states, STATES_ADDR, 1);
+
+		//makes sure that we know payload is off at startup
+		states &= ~STATE_MNLP_ON;
 	}
 
 	EPS_Init(EpsTelemetry_hk, channels_state, vbatt_previous);
@@ -319,6 +336,7 @@ void taskMain()
 	unsigned long start_gs_time;
 	unsigned long time_now_unix;
 	unsigned long pt;
+	unsigned char time_array[TIME_SIZE];
 	Boolean redeployed = 0;
 	gom_eps_channelstates_t channels_state;
 
@@ -326,6 +344,7 @@ void taskMain()
 
 	// Initialize subsystems
 	initialize_subsystems(&EpsTelemetry_hk, &channels_state, &vbatt_previous);
+
 
 
 	//end the bullshit
@@ -340,11 +359,13 @@ void taskMain()
 		vTaskDelay(1000);
 	}
 
-	// check if antennas are deployed
-	deployed = check_ants_deployed();
+	// check if first activation
+	FRAM_read((unsigned char *)&not_first_activation, FIRST_ACTIVATION_ADDR, 4);
+	deployed = not_first_activation;
 
-	// read start time
-	FRAM_read((unsigned char *)&pt, TIME_ADDR, TIME_SIZE);
+		// read start time
+	FRAM_read(time_array, TIME_ADDR, TIME_SIZE);
+	pt = convert_epoctime(time_array);
 
 	//initialize reset thread which resets every x seconds the satellite
 	xTaskGenericCreate(task_reset, (const signed char*)"taskReset", 1024, NULL, configMAX_PRIORITIES-2, &taskResetHandle, NULL, NULL);
@@ -369,8 +390,15 @@ void taskMain()
 			//deploy_ants();
 			deployed = TRUE;
 			pt = rt;
-			FRAM_write((unsigned char *)&pt, TIME_ADDR, TIME_SIZE);
+
+			convert_time_array(pt, time_array);
+			FRAM_write(time_array,TIME_ADDR,TIME_SIZE);
 			Set_Mute(FALSE);
+
+			//set first activation
+			not_first_activation = 1;
+			FRAM_write((unsigned char *)&not_first_activation, FIRST_ACTIVATION_ADDR, FIRST_ACTIVATION_SIZE);
+
 		}
 		vTaskDelay(1000);
 	}
@@ -385,17 +413,6 @@ void taskMain()
 	xTaskGenericCreate(mnlp_listener, (const signed char*)"taskMnlplistener", 1024, NULL, configMAX_PRIORITIES-2, &taskMNLPlistener, NULL, NULL);
 	xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
 	xTaskGenericCreate(task_threadkeeper, (const signed char*)"taskThread", 1024, NULL, configMAX_PRIORITIES-2, &taskThreadCheck, NULL, NULL);
-	vTaskDelay(1500);
-	kicktime(MAIN_THREAD);
-	vTaskDelay(1500);
-	kicktime(MAIN_THREAD);
-	vTaskDelay(1500);
-	kicktime(MAIN_THREAD);
-	vTaskDelay(1500);
-	kicktime(MAIN_THREAD);
-	vTaskDelay(1500);
-	kicktime(MAIN_THREAD);
-	//check_data_file();
 
 
 
@@ -453,7 +470,8 @@ void taskMain()
 		}
 
 		// update time
-		FRAM_write((unsigned char *)&time_now_unix,TIME_ADDR, TIME_SIZE);
+		convert_time_array(time_now_unix, time_array);
+		FRAM_write(time_array,TIME_ADDR,TIME_SIZE);
 
 		vTaskDelay(MAIN_ITERATION_TIME / portTICK_RATE_MS);
 

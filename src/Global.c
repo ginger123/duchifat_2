@@ -4,7 +4,7 @@
 global_param glb;
 unsigned char states;
 gom_eps_channelstates_t glb_channels_state;
-
+int not_first_activation;
 
 
 double Min(double a, double b)
@@ -31,6 +31,7 @@ void Set_Mute(Boolean bool)
 	{
 		states &= ~STATE_MUTE;
 	}
+	FRAM_write(&states, STATES_ADDR, 1);
 }
 void Set_Mnlp_State(Boolean state)
 {
@@ -82,7 +83,7 @@ Boolean Get_Mute()
 	return FALSE;
 }
 
-unsigned long convert_epoctime(char packet[])
+unsigned long convert_epoctime(unsigned char packet[])
 {
 	//get the epoctime signature from the packet sent
 	unsigned long tl=0;
@@ -137,5 +138,57 @@ void double_little_endian(unsigned char* d)
 		temp=d[i];
 		d[i]=d[7-i];
 		d[7-i]=temp;
+	}
+}
+
+void zero_initial_activation()
+{
+	/// FOR TESTING ONLY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	//unsigned long init_t = 946684800;
+	//Time_setUnixEpoch(init_t);
+	adcs_stage = 1;
+	FRAM_write((unsigned char *)&adcs_stage, ADCS_STAGE_ADDR,4);
+	not_first_activation = 0;
+	FRAM_write((unsigned char *)&not_first_activation, FIRST_ACTIVATION_ADDR, FIRST_ACTIVATION_SIZE);
+
+}
+
+void reset_subsystems(unsigned int reset_idx,gom_eps_channelstates_t channels_state)
+{
+	switch (reset_idx)
+	{
+		case 1: //reset TRXVU
+			IsisTrxvu_softReset(0);
+		break;
+
+		case 2: //reset EPS
+			GomEpsSoftReset(0);
+		break;
+
+		case 3: //reset ADCS
+
+			// shut off and on ADCS
+			if (states & STATE_ADCS_ON_EPS)
+			{
+				vTaskDelete(taskADCScomHandle);
+				channels_state.fields.channel3V3_1 = 0;
+				channels_state.fields.channel5V_1 = 0;
+				GomEpsSetOutput(0, channels_state);
+				vTaskDelay(5000);
+				channels_state.fields.channel3V3_1 = 1;
+				channels_state.fields.channel5V_1 = 1;
+				GomEpsSetOutput(0, channels_state);
+				xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
+			}
+		break;
+
+		case 4: //general reset
+			vTaskDelete(taskMNLPcomHandle);
+			vTaskDelete(taskMNLPlistener);
+			vTaskDelete(taskADCScomHandle);
+			vTaskDelete(taskResetHandle);
+			gracefulReset();
+		break;
 	}
 }

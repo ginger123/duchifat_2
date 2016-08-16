@@ -153,15 +153,13 @@ int TRX_sendFrame(unsigned char* data, unsigned char length)
 	return 0;
 }
 
-void act_upon_comm(unsigned char* in, unsigned short length,gom_eps_channelstates_t channels_state)
+void act_upon_comm(unsigned char* in, gom_eps_channelstates_t channels_state)
 {
 
 	unsigned int i=0;
 	FRAM_read(&tc_count,TC_COUNT_ADDR,1);
 	in++;
 	rcvd_packet decode;
-
-
 
 	parse_comm(&decode,in);
 	if(!decode.isvalidcrc) return;
@@ -229,9 +227,15 @@ void act_upon_comm(unsigned char* in, unsigned short length,gom_eps_channelstate
 				if(decode.srvc_subtype==134)//reset FTW
 				{
 					//change this to whatever reset sequence we need
-					gracefulReset();
+					reset_subsystems((unsigned int)decode.data[0],channels_state);
+
 				}
-				if(decode.srvc_subtype==137)
+				if(decode.srvc_subtype==135) // For testing - initial activation
+				{
+					if (decode.data[0]==59)
+						zero_initial_activation();
+				}
+				if(decode.srvc_subtype==137) //change adcs state
 				{
 					adcs_stage=decode.data[0];
 					FRAM_write((unsigned char *)&adcs_stage, ADCS_STAGE_ADDR,4);
@@ -248,7 +252,6 @@ void act_upon_comm(unsigned char* in, unsigned short length,gom_eps_channelstate
 					printf("I2C command for address %x length %x\n",decode.data[0],decode.data[1]);
 					print_array(&decode.data[2],decode.data[1]);
 					I2C_write((unsigned int)decode.data[0],&decode.data[2],decode.data[1]);
-					deploy_ants(channels_state);
 				}
 			break;
 		case (130):
@@ -289,15 +292,17 @@ void act_upon_comm(unsigned char* in, unsigned short length,gom_eps_channelstate
 				free(cc);
 
 			}
-			if(decode.srvc_subtype==133)
+			if(decode.srvc_subtype==134) // disable mnlp activity
 			{
 				if(decode.data[0])
 				{
 					states |= STATE_MNLP_ON_GROUND;
+					FRAM_write(&states, STATES_ADDR, 1);
 				}
 				else
 				{
 					states &= ~STATE_MNLP_ON_GROUND;
+					FRAM_write(&states, STATES_ADDR, 1);
 				}
 			}
 		break;
@@ -323,9 +328,8 @@ void act_upon_comm(unsigned char* in, unsigned short length,gom_eps_channelstate
 				}
 				Time_setUnixEpoch(t);
 				ADCS_update_unix_time(t);
-				FRAM_write((unsigned char *)&t, TIME_ADDR, TIME_SIZE);
 			}
-			if(decode.srvc_subtype==2)
+			if(decode.srvc_subtype==2) //upload tle
 			{
 				ADCS_update_tle(decode.data);
 			}
@@ -396,8 +400,8 @@ void dump(void *arg)
 		unsigned char type = 0;unsigned long start_time = 0; unsigned long final_time = 0;
 		unsigned char* argument = (unsigned char*)arg;
 		printf("entered dump\n");
-		start_time = convert_epoctime((char *)&argument[1]);
-		final_time=convert_epoctime((char *)(&argument[6]));
+		start_time = convert_epoctime((unsigned char *)&argument[1]);
+		final_time=convert_epoctime((unsigned char *)(&argument[6]));
 		type=argument[0];
 		printf("type is %d, start time is %lu end time is %lu\n",type,start_time,final_time);
 		if(start_time>final_time)
@@ -540,6 +544,7 @@ void end_gs_mode()
 
 Boolean check_ants_deployed()// NOT WORKING CAUSE ISIS CODE
 {
+	int first_activation;
 	/*ISISantsSide side = isisants_sideA;
 	ISISantsStatus ants_stat;
 	side = isisants_sideA;
@@ -552,8 +557,21 @@ Boolean check_ants_deployed()// NOT WORKING CAUSE ISIS CODE
 		printf("deployed\n");
 		return TRUE;
 	}*/
-	printf("not deployed\n");
-	return FALSE;
+
+	// for testing only
+
+	FRAM_read((unsigned char *)&first_activation, FIRST_ACTIVATION_ADDR, 4);
+	printf("checking deployed %d\n",first_activation);
+	if (first_activation==0)
+	{
+		printf("not deployed\n");
+		return FALSE;
+	}
+	else
+	{
+		printf("deployed\n");
+		return TRUE;
+	}
 
 }
 
@@ -589,7 +607,7 @@ void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix,gom_
 
 			}
 			printf("\n\rEND RECEIVED PACKET\r\n");
-			act_upon_comm(receive_frm,rxFrameCmd.rx_length,channels_state);
+			act_upon_comm(receive_frm,channels_state);
 		}
 		Time_getUnixEpoch(time_now_unix);
 		if(*time_now_unix - *start_gs_time >= GS_TIME)
@@ -653,7 +671,7 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 	Time_getUnixEpoch(&cur_wod);
 	if(cur_wod-last_wod>60)//of more than 60 sec elapsed after last save. save wod again
 	{
-		WritewithEpochtime("wod_file",0,dat,9);
+		WritewithEpochtime("wod_file",0,(char *)dat,9);
 		last_wod=cur_wod;
 	}
 

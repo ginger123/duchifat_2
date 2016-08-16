@@ -30,9 +30,7 @@
 #define ADC_SID 201
 
 #define BACON_TIME 20
-#define TC_COUNT_ADDR 0x100A
-#define FRAME_COUNT_ADDR 0x100B
-#define SSC_ADDR 0X100C
+
 typedef struct isisTXtlm
 {
     float tx_reflpwr; ///< Tx Telemetry reflected power.
@@ -60,7 +58,7 @@ void vurc_getRxTelemTest(isisRXtlm *converted);
 void vurc_getTxTelemTest(isisTXtlm *converted);
 void init_trxvu(void);
 int TRX_sendFrame(unsigned char* data, unsigned char length);
-void act_upon_comm(unsigned char* in, unsigned short length,gom_eps_channelstates_t channels_state);
+void act_upon_comm(unsigned char* in, gom_eps_channelstates_t channels_state);
 void dump(void *arg);
 void Beacon(gom_eps_hk_t EpsTelemetry_hk);
 Boolean check_ants_deployed();

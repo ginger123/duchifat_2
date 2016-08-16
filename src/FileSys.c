@@ -9,7 +9,6 @@ void InitializeFS(int delete)
 	char mnlp_file[] ={"mnlp"};
 	char wod_file[] = {"wod"};
 	F_FILE *file;
-	char format;
 
 	hcc_mem_init(); /* Initialize the memory to be used by filesystem */
 
@@ -317,7 +316,7 @@ void check_data_file()
 void AllinAll()
 {
 
-	int i,j;
+	int i;
 
 	printf("starting SD test\n");
 	char filename[]={"test_file"};
@@ -332,9 +331,7 @@ void AllinAll()
 
 
 
-	int num_packets;
-	int start_idx;
-	unsigned long t_start,t_b,t_c,t_finish;
+	unsigned long t_start;
 
 	printf("Initialize File system SD test\n");
 	Time_getUnixEpoch(&t_start);
@@ -365,7 +362,7 @@ void AllinAll()
 	for(i=0;i<6;i++)
 	{
 		FileReadIndex(filename,ToRead, _BUFF_SIZE+5, i);
-		print_array(ToRead,_BUFF_SIZE+5);
+		print_array((unsigned char *)ToRead,_BUFF_SIZE+5);
 	}
 	printf("erasing\n");
 	//delete_packets_from_file(filename,t_start,_BUFF_SIZE+5);

@@ -137,7 +137,7 @@ void eslADCS_getMagneticFieldVec(adcs_magfieldvec_t* mag_field)
 	vTaskDelay(5 / portTICK_RATE_MS);
 	I2C_read(0x12,data,6);
 	//printf("magnetic field vector\n");
-	print_array(data,6);
+	//print_array(data,6);
 
 	mag_field->fields.x_magfield = data[1]<<8;
 	mag_field->fields.x_magfield += data[0];
@@ -364,7 +364,7 @@ void eslADCS_telemetry_Time_Power_temp()
 	//printf("arm cputemp %d\n",telemetry_data.arm_cpuTemp);
 	//printf("telemtry 3v3curr %d\n",telemetry_data.ccontrol_3v3curr);
 	WritewithEpochtime("adcs_tlm_file",0,(char *) &telemetry_data, sizeof(ADCS_telemetry_data));
-	print_send_ADCS_telemetry_packet(telemetry_data);
+	//print_send_ADCS_telemetry_packet(telemetry_data);
 }
 
 void ADCS_get_status(unsigned char *status)
@@ -644,6 +644,7 @@ void ADCS_update_unix_time(unsigned long t)
 void ADCS_update_tle(unsigned char* tle)
 {
 	int i;
+	unsigned char save_com = 100;
 	ADCS_Payload_Telemetry Payload_Telemtry;
 
 	//unsigned char temp_tle[] = {0x3F,0xFB,0x58,0xE2,0x19,0x65,0x2B,0xD4	  ,0x3F,0x56,0x34,0xF5,0xAB,0x12,0x67,0xE2  ,0x3F,0xFA,0x66,0x66,0x66,0x66,0x66,0x66 ,0x3F,0xC1,0x37,0x4B,0xC6,0xA7,0xEF,0x9E  ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x3F ,0xB0 ,0xA2 ,0x87 ,0x7E ,0xE4 ,0xE2 ,0x6D ,0x40 ,0x18 ,0x9A ,0x9F ,0xBE ,0x76 ,0xC8 ,0xB4 ,0x41 ,0xD5 ,0xDF ,0x63 ,0x91 ,0x00 ,0x00 ,0x00 ,0xAD ,0x79 ,0x5D ,0x77};
@@ -657,7 +658,7 @@ void ADCS_update_tle(unsigned char* tle)
 
 	//print_array(tle,64);
 	ADCS_command(64,tle,64);
-
+	I2C_write(0x12, &save_com, 1);
 	// for testimng
 	ADCS_payload_Telemetry(&Payload_Telemtry);
 }
@@ -665,8 +666,7 @@ void ADCS_update_tle(unsigned char* tle)
 void ADCS_set_magnetometer_config(unsigned char mag_config_set[30])
 {
 	unsigned char set_comm=86,save_com = 100;
-	unsigned char get_data[240],set_data[30];
-	int i;
+
 	adcs_calibration calibration;
 
 	ADCS_command(set_comm,mag_config_set,30);

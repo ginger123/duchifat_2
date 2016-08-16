@@ -127,7 +127,7 @@ void taskmnlp()//task for the mnlp operation
 						sqnc_on = 1;
 						_sqncTask(args);
 #else
-						if (states & (STATE_MNLP_ON_EPS +STATE_MNLP_ON_GROUND))
+						if ( (states & STATE_MNLP_ON_EPS) && (states & STATE_MNLP_ON_GROUND))
 						{
 							sqnc_on = 1;
 							xTaskGenericCreate(_sqncTask, (const signed char*)"taskSqnce", 1024, (void *)args, configMAX_PRIORITIES - 2, &task_mNLP_sqnc, NULL, NULL);
@@ -364,7 +364,7 @@ int check_new_script()
 
 void parse_script(short active_idx)
 {
-	unsigned char* script_ptr;
+	unsigned char* script_ptr,*script_ptr_first;
 	int sqnc_ctr;
 	int byte_ctr;
 	short length;
@@ -374,7 +374,8 @@ void parse_script(short active_idx)
 	length = script_ptr[1]*256 + script_ptr[0];
 #else
 	FRAM_read((unsigned char *)&length, scripts_adresses[active_idx], 2);
-	script_ptr = (unsigned char *)calloc(length,sizeof(char));
+	script_ptr_first = (unsigned char *)calloc(length,sizeof(char));
+	script_ptr = script_ptr_first;
 	FRAM_read(script_ptr, scripts_adresses[active_idx], length);
 	// read from memory
 #endif
@@ -383,21 +384,42 @@ void parse_script(short active_idx)
 	script_ptr = script_ptr+TIME_TABLE_START;
 	sqnc_ctr = 0;
 	byte_ctr = TIME_TABLE_START;
+	int cmd_len;
+	length=length-2;
+	// go over time table
+	script_ptr+=3;
+	byte_ctr +=3;
+	while (*script_ptr!=MNLP_TT_EOT)
+	{
+		script_ptr+=4;
+		byte_ctr+=4;
+	}
+	sqnc_locations[0]=byte_ctr+1;
+	sqnc_ctr = 1;
+	script_ptr++;
+	byte_ctr++;
+
+	// go over sequences
 	while (byte_ctr<length && sqnc_ctr<5)
 	{
-		if (*script_ptr == MNLP_TT_EOT)
+		if (script_ptr[2] == OBC_EOT)
 		{
-			sqnc_locations[sqnc_ctr]=byte_ctr+1;
+			byte_ctr=byte_ctr+5;
+			script_ptr+=5;
+			sqnc_locations[sqnc_ctr]=byte_ctr;
 			sqnc_ctr++;
 		}
-		if (*script_ptr == OBC_EOT)
+		else
 		{
-			sqnc_locations[sqnc_ctr]=byte_ctr+3;
-			sqnc_ctr++;
+			cmd_len = script_ptr[3];
+			byte_ctr=byte_ctr+cmd_len+4;
+			script_ptr =script_ptr+cmd_len+4;
 		}
-		byte_ctr++;
-		script_ptr++;
-	}	
+
+	}
+	printf("found %d sequences\n",sqnc_ctr);
+	printf("locations 0: %d      1: %d      2: %d       3: %d      4: %d     5: %d \n",sqnc_locations[0],sqnc_locations[1],sqnc_locations[2],sqnc_locations[3],sqnc_locations[4],sqnc_locations[5]);
+	free(script_ptr_first);
 }
 
 void mnlp_listener()
@@ -407,6 +429,7 @@ void mnlp_listener()
 	int retValInt,readSize = 174;
 	UARTbus bus = bus0_uart;
 	f_enterFS();
+	printf("entered listener\n");
 
 	while (1)
 	{
@@ -415,7 +438,7 @@ void mnlp_listener()
 		if (states & STATE_MNLP_ON)
 		{
 			retValInt = UART_read(bus, readData, readSize);
-
+			readPtr = readData;
 			if (readData[0] == 0x00)
 			{
 				readPtr++;
@@ -455,6 +478,7 @@ void turn_on_payload()
 	vTaskDelay(10);
 	PIO_Set(&Pin07);
 	vTaskDelay(10);
+	FRAM_write(&states, STATES_ADDR, 1);
 }
 void turn_off_payload()
 {
@@ -471,6 +495,8 @@ void turn_off_payload()
 	vTaskDelay(10);
 	PIO_Clear(&Pin07);
 	vTaskDelay(10);
+	FRAM_write(&states, STATES_ADDR, 1);
+
 }
 
 char get_ERR_code(unsigned char * pct)

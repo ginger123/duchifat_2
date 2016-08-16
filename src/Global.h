@@ -3,6 +3,7 @@
 
 #include <hal/boolean.h>
 #include "GomEPS.h"
+#include "main.h"
 
 #define STATE_MUTE 0x01
 #define STATE_GS 0x02
@@ -25,18 +26,28 @@
 #define AUTO_DEPLOYMENT_TIME 10
 
 
-// FRAM
-#define TIME_ADDR 0x10BB
-#define TIME_SIZE 8
-#define ADCS_STAGE_ADDR 0x10D0
-#define ADCS_STAGE_SIZE 4
+// FRAM addresses
 #define EPS_VOLTAGE_ADDR 0x1000
 #define EPS_VOLTAGE_SIZE 6
+#define TC_COUNT_ADDR 0x100A     // one byte
+#define FRAME_COUNT_ADDR 0x100B // one byte
+#define SSC_ADDR 0X100C 		// 17*4
+#define FIRST_ACTIVATION_ADDR 0x10A0 // 4 bytes
+#define STATES_ADDR    0x10B0	// one byte
+#define TIME_ADDR 0x10BB
+#define TIME_SIZE 5
+#define ADCS_STAGE_ADDR 0x10D0
+#define ADCS_STAGE_SIZE 4
+
+
+
+
+#define FIRST_ACTIVATION_SIZE 4
 
 #define GS_TIME 420
 #define THREAD_TIMEOUT 60
 #define THREAD_LISTENER_TIMEOUT 500
-#define THREAD_TIMESTAMP_LEN 5
+
 
 #define MAIN_THREAD 0//0=main 1=mnlp 2=mnlplistener 3=adcs 4=reset
 #define MNLP_THREAD 1
@@ -61,6 +72,9 @@ unsigned char tempBatt;
 } global_param;
 
 extern global_param glb;
+extern int not_first_activation;
+extern xTaskHandle taskMNLPcomHandle,taskMNLPlistener,taskADCScomHandle,taskMainHandle,taskResetHandle;
+extern xTaskHandle taskThreadCheck;
 
 void Set_Mute(Boolean bool);// 0 is mute off ,1 is mute on 2 is mute_eps on 3 is both mutes on
 void Set_Mnlp_State(Boolean state);
@@ -71,12 +85,14 @@ void Set_Curout5V(unsigned short curout);
 void Set_tempCOMM(short temp);
 void Set_tempEPS(short temp);
 void Set_tempBatt(short temp);
-unsigned long convert_epoctime(char packet[]);
+unsigned long convert_epoctime(unsigned char packet[]);
 void convert_time_array(unsigned long t_l, unsigned char time[5]);
 void print_array(unsigned char *arr,int length);
 void switch_endian(unsigned char *in, int len);
 void double_little_endian(unsigned char* d);
 void kicktime(int n);
+void zero_initial_activation();
+void reset_subsystems(unsigned int reset_idx,gom_eps_channelstates_t channels_state);
 Boolean Get_Mute();
 
 void deploy_ants(gom_eps_channelstates_t channels_state);

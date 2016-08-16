@@ -52,6 +52,7 @@ void EPS_Power_Conditioning(gom_eps_hk_t* EPS_Cur_TLM, unsigned short* Vbatt_Pre
 		}
 	}
 	*Vbatt_Previous = EPS_Cur_TLM->fields.vbatt;
+	FRAM_write(&states, STATES_ADDR, 1);
 }
 
 
@@ -59,7 +60,6 @@ void EPS_Power_Conditioning(gom_eps_hk_t* EPS_Cur_TLM, unsigned short* Vbatt_Pre
 void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state, unsigned short* vbatt_previous)
 {
 	unsigned char EPS_addr = EPS_address;
-	eps_config_t eps_config;
 	GomEpsInitialize(&EPS_addr, 1);
 	GomEpsGetHkData_general(0, EPS_Cur_TLM);
 	unsigned char voltages[EPS_VOLTAGE_SIZE];
@@ -97,8 +97,9 @@ void EPS_Init(gom_eps_hk_t* EPS_Cur_TLM, gom_eps_channelstates_t *channels_state
 		states |= STATE_ADCS_ON_EPS + STATE_MNLP_ON_EPS;
 		states &= ~STATE_MUTE_EPS;
 	}
-	*vbatt_previous = EPS_Cur_TLM->fields.vbatt;
 
+	*vbatt_previous = EPS_Cur_TLM->fields.vbatt;
+	FRAM_write(&states, STATES_ADDR, 1);
 }
 
 void print_config(eps_config_t config_data)
@@ -112,7 +113,7 @@ void set_heater_values(char heater_params[2])
 {
     eps_config_t config_data;
     GomEpsConfigGet(0,&config_data);
-    print_array(heater_params,2);
+    print_array((unsigned char *)heater_params,2);
     printf("before:\n");
     print_config(config_data);
     config_data.fields.battheater_low = heater_params[0];
