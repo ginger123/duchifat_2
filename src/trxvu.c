@@ -160,6 +160,7 @@ void act_upon_comm(unsigned char* in, gom_eps_channelstates_t channels_state)
 	FRAM_read(&tc_count,TC_COUNT_ADDR,1);
 	in++;
 	rcvd_packet decode;
+	unsigned char arm;
 
 	parse_comm(&decode,in);
 	if(!decode.isvalidcrc) return;
@@ -238,6 +239,7 @@ void act_upon_comm(unsigned char* in, gom_eps_channelstates_t channels_state)
 				if(decode.srvc_subtype==137) //change adcs state
 				{
 					adcs_stage=decode.data[0];
+					adcs_stage_param = decode.data[1]*(256^3)+decode.data[2]*(256^2)+decode.data[3]*256+decode.data[4];
 					FRAM_write((unsigned char *)&adcs_stage, ADCS_STAGE_ADDR,4);
 					printf("Change stage to %d\n",adcs_stage);
 				}
@@ -245,7 +247,7 @@ void act_upon_comm(unsigned char* in, gom_eps_channelstates_t channels_state)
 				{
 
 					printf("redeploy\n");
-					//deploy_ants(channels_state);
+					redeploy_ants(channels_state);
 				}
 				if(decode.srvc_subtype==139) // generic i2c
 				{
@@ -370,6 +372,21 @@ void act_upon_comm(unsigned char* in, gom_eps_channelstates_t channels_state)
 			{
 				set_heater_values((char *)decode.data);
 			}
+			if (decode.srvc_subtype ==7)
+			{
+				if (decode.data[0]==15)
+				{
+					printf("arm - you can now deploy!\n");
+					arm = 1;
+					FRAM_write(&arm,ARM_DEPLOY_ADDR,1);
+				}
+				else
+				{
+					printf("disarm - you can not deploy!\n");
+					arm = 0;
+					FRAM_write(&arm,ARM_DEPLOY_ADDR,1);
+				}
+			}
 
 		break;
 		default:
@@ -443,6 +460,7 @@ void dump(void *arg)
 			case 2://dumping adcs commisionning
 				file= ADC_comm;
 				size= ADC_COMM_SIZE;
+				end_offest=8;
 				printf("dump adc commisioning\n");
 				break;
 			case 3:
@@ -627,6 +645,17 @@ void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix,gom_
 
 }
 
+
+//void print_wod(short vbat, short vcur_5,short vcur_3,short eps_temp,short com_temp)
+void print_wod(short vbat, short vcur_5,short vcur_3,short eps_temp,short com_temp)
+{
+	printf("vbat is %d\n",vbat);
+	printf("5v current is %d\n",vcur_5);
+	printf("3v current is %d\n",vcur_3);
+	printf("eps_temp %d\n",eps_temp);
+	printf("com_temp %d\n",com_temp);
+}
+
 void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 {
 	ccsds_packet beacon;
@@ -649,6 +678,8 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 	beacon.srvc_subtype=25;
 	beacon.len=9;
 	update_time(beacon.c_time);
+
+	print_wod(EpsTelemetry_hk.fields.vbatt, EpsTelemetry_hk.fields.curout[0],EpsTelemetry_hk.fields.curout[4],EpsTelemetry_hk.fields.temp[0],EpsTelemetry_hk.fields.temp[4]);
 
 	Set_Vbatt(EpsTelemetry_hk.fields.vbatt);
 	Set_Cursys(EpsTelemetry_hk.fields.cursys);

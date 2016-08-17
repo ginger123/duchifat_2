@@ -275,7 +275,7 @@ typedef union __attribute__ ((__packed__)) _adcs_ctrlmodeset_t
 	struct __attribute__ ((__packed__))
 	{
 		adcs_controlmode_t mode;
-		//Boolean8bit override;
+		Boolean8bit override;
 		unsigned short timeout;
 	} fields;
 } adcs_ctrlmodeset_t;

@@ -31,7 +31,7 @@ typedef struct ADCS_comissioning_data
 
 
 extern int adcs_advance_stage;
-extern int adcs_stage;
+extern int adcs_stage,adcs_stage_param;
 
 void task_adcs_commissioning();
 

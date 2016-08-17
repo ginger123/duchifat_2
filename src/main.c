@@ -6,17 +6,17 @@
 
 #define ENABLE_MAIN_TRACES 1
 #if ENABLE_MAIN_TRACES
-	#define MAIN_TRACE_INFO			TRACE_INFO
-	#define MAIN_TRACE_DEBUG		TRACE_DEBUG
-	#define MAIN_TRACE_WARNING		TRACE_WARNING
-	#define MAIN_TRACE_ERROR		TRACE_ERROR
-	#define MAIN_TRACE_FATAL		TRACE_FATAL
+#define MAIN_TRACE_INFO			TRACE_INFO
+#define MAIN_TRACE_DEBUG		TRACE_DEBUG
+#define MAIN_TRACE_WARNING		TRACE_WARNING
+#define MAIN_TRACE_ERROR		TRACE_ERROR
+#define MAIN_TRACE_FATAL		TRACE_FATAL
 #else
-	#define MAIN_TRACE_INFO(...)	{ }
-	#define MAIN_TRACE_DEBUG(...)	{ }
-	#define MAIN_TRACE_WARNING(...)	{ }
-	#define MAIN_TRACE_ERROR		TRACE_ERROR
-	#define MAIN_TRACE_FATAL		TRACE_FATAL
+#define MAIN_TRACE_INFO(...)	{ }
+#define MAIN_TRACE_DEBUG(...)	{ }
+#define MAIN_TRACE_WARNING(...)	{ }
+#define MAIN_TRACE_ERROR		TRACE_ERROR
+#define MAIN_TRACE_FATAL		TRACE_FATAL
 #endif
 
 #ifndef NULL
@@ -32,6 +32,8 @@ global_param glb;
 xTaskHandle taskMNLPcomHandle,taskMNLPlistener,taskADCScomHandle,taskMainHandle,taskResetHandle;
 xTaskHandle taskThreadCheck;
 unsigned long timestamp[THREAD_TIMESTAMP_LEN];//0=main 1=mnlp 2=mnlplistener 3=adcs 4=reset
+gom_eps_channelstates_t channels_state;
+
 
 void task_reset();
 void taskMain();
@@ -95,57 +97,134 @@ void deploy_ants(gom_eps_channelstates_t channels_state)
 	IsisAntS_attemptDeployment(0,isisants_sideB,isisants_antenna4, isisants_normalDeployment,10);*/
 
 	//this stuff is the sattelite subsystem's way of deploying
-	ISISantsSide side =  isisants_sideA;
-	unsigned char antennaSystemsIndex = 0;
-	IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
-	vTaskDelay(5 / portTICK_RATE_MS);
-	IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
-	vTaskDelay(5 / portTICK_RATE_MS);
-	IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
+	unsigned char arm;
+	FRAM_read(&arm,ARM_DEPLOY_ADDR, 1);
 
-	vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
-	IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
-	vTaskDelay(5 / portTICK_RATE_MS);
-	IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
-	vTaskDelay(5 / portTICK_RATE_MS);
-	IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
+	if (arm==1)
+	{
+		printf("deploy!!!!\n");
+		if (0)
+		{
 
-	vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
-	kicktime(MAIN_THREAD);
-	// deploy booms
-	channels_state.fields.channel5V_2 = 1;
-	GomEpsSetOutput(0, channels_state); // Shuts down the payload
+			ISISantsSide side =  isisants_sideA;
+			unsigned char antennaSystemsIndex = 0;
+			IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
+			vTaskDelay(5 / portTICK_RATE_MS);
+			IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
+			vTaskDelay(5 / portTICK_RATE_MS);
+			IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
 
-	vTaskDelay(BOOM_DEPLOY_TIME*1000);
-	channels_state.fields.channel5V_2 = 0;
-	channels_state.fields.channel5V_3 = 1;
-	GomEpsSetOutput(0, channels_state); // Shuts down the payload
-	vTaskDelay(BOOM_DEPLOY_TIME*1000);
+			vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
+			IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
+			vTaskDelay(5 / portTICK_RATE_MS);
+			IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
+			vTaskDelay(5 / portTICK_RATE_MS);
+			IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
 
-	channels_state.fields.channel5V_3 = 0;
-	channels_state.fields.channel5V_2 = 1;
-	GomEpsSetOutput(0, channels_state); // Shuts down the payload
+			vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
+			kicktime(MAIN_THREAD);
+			// deploy booms
+			channels_state.fields.channel5V_2 = 1;
+			GomEpsSetOutput(0, channels_state); // Shuts down the payload
 
-	kicktime(MAIN_THREAD);
+			vTaskDelay(BOOM_DEPLOY_TIME*1000);
+			channels_state.fields.channel5V_2 = 0;
+			channels_state.fields.channel5V_3 = 1;
+			GomEpsSetOutput(0, channels_state); // Shuts down the payload
+			vTaskDelay(BOOM_DEPLOY_TIME*1000);
 
-	vTaskDelay(BOOM_DEPLOY_TIME*1000);
-	channels_state.fields.channel5V_2 = 0;
-	channels_state.fields.channel5V_3 = 1;
-	GomEpsSetOutput(0, channels_state); // Shuts down the payload
-	vTaskDelay(BOOM_DEPLOY_TIME*1000);
+			channels_state.fields.channel5V_3 = 0;
+			channels_state.fields.channel5V_2 = 1;
+			GomEpsSetOutput(0, channels_state); // Shuts down the payload
 
-	channels_state.fields.channel5V_3 = 0;
-	GomEpsSetOutput(0, channels_state); // Shuts down the payload
+			kicktime(MAIN_THREAD);
+
+			vTaskDelay(BOOM_DEPLOY_TIME*1000);
+			channels_state.fields.channel5V_2 = 0;
+			channels_state.fields.channel5V_3 = 1;
+			GomEpsSetOutput(0, channels_state); // Shuts down the payload
+			vTaskDelay(BOOM_DEPLOY_TIME*1000);
+
+			channels_state.fields.channel5V_3 = 0;
+			GomEpsSetOutput(0, channels_state); // Shuts down the payload
+		}
+	}
+	else
+	{
+		printf("deployment mechanism no armed!!!!\n");
+	}
 
 }
+
+void redeploy_ants(gom_eps_channelstates_t channels_state)
+{
+	//our guess
+	/*IsisAntS_attemptDeployment(0,isisants_sideA,isisants_antenna1, isisants_normalDeployment,10);
+	IsisAntS_attemptDeployment(0,isisants_sideA,isisants_antenna2, isisants_normalDeployment,10);
+	IsisAntS_attemptDeployment(0,isisants_sideB,isisants_antenna3, isisants_normalDeployment,10);
+	IsisAntS_attemptDeployment(0,isisants_sideB,isisants_antenna4, isisants_normalDeployment,10);*/
+
+	//this stuff is the sattelite subsystem's way of deploying
+	unsigned char arm;
+	FRAM_read(&arm,ARM_DEPLOY_ADDR, 1);
+
+	printf("deploy!!!!\n");
+	if (0)
+	{
+
+		ISISantsSide side =  isisants_sideA;
+		unsigned char antennaSystemsIndex = 0;
+		IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
+		vTaskDelay(5 / portTICK_RATE_MS);
+		IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
+		vTaskDelay(5 / portTICK_RATE_MS);
+		IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
+
+		vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
+		IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
+		vTaskDelay(5 / portTICK_RATE_MS);
+		IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
+		vTaskDelay(5 / portTICK_RATE_MS);
+		IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
+
+		vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
+		kicktime(MAIN_THREAD);
+		// deploy booms
+		channels_state.fields.channel5V_2 = 1;
+		GomEpsSetOutput(0, channels_state); // Shuts down the payload
+
+		vTaskDelay(BOOM_DEPLOY_TIME*1000);
+		channels_state.fields.channel5V_2 = 0;
+		channels_state.fields.channel5V_3 = 1;
+		GomEpsSetOutput(0, channels_state); // Shuts down the payload
+		vTaskDelay(BOOM_DEPLOY_TIME*1000);
+
+		channels_state.fields.channel5V_3 = 0;
+		channels_state.fields.channel5V_2 = 1;
+		GomEpsSetOutput(0, channels_state); // Shuts down the payload
+
+		kicktime(MAIN_THREAD);
+
+		vTaskDelay(BOOM_DEPLOY_TIME*1000);
+		channels_state.fields.channel5V_2 = 0;
+		channels_state.fields.channel5V_3 = 1;
+		GomEpsSetOutput(0, channels_state); // Shuts down the payload
+		vTaskDelay(BOOM_DEPLOY_TIME*1000);
+
+		channels_state.fields.channel5V_3 = 0;
+		GomEpsSetOutput(0, channels_state); // Shuts down the payload
+	}
+
+}
+
 
 void Initialize_UART()
 {
 	UARTconfig configBus0 = {.mode = AT91C_US_USMODE_NORMAL | AT91C_US_CLKS_CLOCK | AT91C_US_CHRL_8_BITS | AT91C_US_PAR_NONE | AT91C_US_OVER_16 | AT91C_US_NBSTOP_1_BIT,
-									.baudrate = 9600, .timeGuard = 1, .busType = rs232_uart, .rxtimeout = 0x03C0};
+			.baudrate = 9600, .timeGuard = 1, .busType = rs232_uart, .rxtimeout = 0x03C0};
 
 	// Both UART peripherals must be started separately as they can use different configurations.
-    UART_start(bus0_uart, configBus0);
+	UART_start(bus0_uart, configBus0);
 }
 
 void Initialized_GPIO()
@@ -159,14 +238,14 @@ void Initialized_GPIO()
 
 	PIO_Configure(&Pin04, PIO_LISTSIZE(&Pin04));
 	if(!PIO_Configure(&Pin04, PIO_LISTSIZE(Pin04))) {
-			printf(" PinTest: Unable to configure PIOA pins as output! \n\r");
-			while(1);
+		printf(" PinTest: Unable to configure PIOA pins as output! \n\r");
+		while(1);
 	}
 	vTaskDelay(10);
 	PIO_Configure(&Pin05, PIO_LISTSIZE(&Pin05));
 	if(!PIO_Configure(&Pin05, PIO_LISTSIZE(Pin05))) {
-			printf(" PinTest: Unable to configure PIOB pins as output! \n\r");
-			while(1);
+		printf(" PinTest: Unable to configure PIOB pins as output! \n\r");
+		while(1);
 	}
 	vTaskDelay(10);
 	PIO_Configure(&Pin06, PIO_LISTSIZE(&Pin06));
@@ -177,8 +256,8 @@ void Initialized_GPIO()
 	vTaskDelay(10);
 	PIO_Configure(&Pin07, PIO_LISTSIZE(&Pin07));
 	if(!PIO_Configure(&Pin07, PIO_LISTSIZE(Pin06))) {
-			printf(" PinTest: Unable to configure PIOC pins as output! \n\r");
-			while(1);
+		printf(" PinTest: Unable to configure PIOC pins as output! \n\r");
+		while(1);
 	}
 	printf("\n\r PinTest: All pins should now be logic-0 (0V). Please check their states now. \n\r");
 }
@@ -294,10 +373,18 @@ void task_threadkeeper()
 		}
 		if(t > timestamp[3]+THREAD_TIMEOUT )
 		{
+			kicktime(ADCS_THREAD);
 			printf("---THREAD ADCS FAILED. RESTARTING---\n");
 			vTaskDelete(taskADCScomHandle);
+			channels_state.fields.channel3V3_1 = 0;
+			channels_state.fields.channel5V_1 = 0;
+			GomEpsSetOutput(0, channels_state);
+			vTaskDelay(5000);
+			channels_state.fields.channel3V3_1 = 1;
+			channels_state.fields.channel5V_1 = 1;
+			GomEpsSetOutput(0, channels_state);
 			xTaskGenericCreate(task_adcs_commissioning, (const signed char*)"task_adcs_com", 1024, NULL, configMAX_PRIORITIES-2, &taskADCScomHandle, NULL, NULL);
-			kicktime(ADCS_THREAD);
+
 		}
 		if(t > timestamp[4]+THREAD_TIMEOUT )
 		{
@@ -313,11 +400,11 @@ void task_reset()
 {
 	int i=0;
 	for(i=0;i<RESET_TIMEOUT;i++)
-		{
+	{
 		//printf("reset in %d seconds\n",30-i);
 		vTaskDelay(1000);
 		kicktime(RESET_THREAD);
-		}
+	}
 	gracefulReset();
 	while(1);
 }
@@ -338,7 +425,7 @@ void taskMain()
 	unsigned long pt;
 	unsigned char time_array[TIME_SIZE];
 	Boolean redeployed = 0;
-	gom_eps_channelstates_t channels_state;
+
 
 	Boolean deployed;
 
@@ -363,7 +450,7 @@ void taskMain()
 	FRAM_read((unsigned char *)&not_first_activation, FIRST_ACTIVATION_ADDR, 4);
 	deployed = not_first_activation;
 
-		// read start time
+	// read start time
 	FRAM_read(time_array, TIME_ADDR, TIME_SIZE);
 	pt = convert_epoctime(time_array);
 
@@ -387,7 +474,8 @@ void taskMain()
 		if(rt - pt >= (unsigned long)DEPLOY_TIME)
 		{
 			kicktime(MAIN_THREAD);
-			//deploy_ants();
+
+			deploy_ants(channels_state);
 			deployed = TRUE;
 			pt = rt;
 
@@ -437,7 +525,7 @@ void taskMain()
 		if ( (time_now_unix-first_deploy>REDEPLOY_TIME) && (!redeployed))
 		{
 			printf("re-deploy\n");
-			// deploy_ants(channels_state);
+			deploy_ants(channels_state);
 			redeployed = 1;
 		}
 
@@ -489,11 +577,11 @@ int main() {
 	CP15_Enable_I_Cache();
 
 	printf("\n\r -- ISIS-OBC First Project Program Booted --\n\r");
-	#ifdef __OPTIMIZE__
-		printf("\n\r -- Compiled on  %s %s in release mode --\n\r", __DATE__, __TIME__);
-	#else
-		printf("\n\r -- Compiled on  %s %s in debug mode --\n\r", __DATE__, __TIME__);
-	#endif
+#ifdef __OPTIMIZE__
+	printf("\n\r -- Compiled on  %s %s in release mode --\n\r", __DATE__, __TIME__);
+#else
+	printf("\n\r -- Compiled on  %s %s in debug mode --\n\r", __DATE__, __TIME__);
+#endif
 	// The actual watchdog is already started, this only initializes the watchdog-kick interface.
 	WDT_start();
 	printf("\t main: Starting main task.. \n\r");

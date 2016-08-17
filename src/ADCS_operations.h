@@ -85,10 +85,11 @@ void ADCS_update_unix_time(unsigned long t);
 void ADCS_update_tle(unsigned char* tle);
 void get_sat_llh_pos(adcs_refllhcoord_t *llh_in);
 void adcs_reset(unsigned char type);
-void adcs_set_estimation_param();
+void adcs_set_estimation_param(unsigned char mask_sensors);
 void eslADCS_getCalNadirSensor();
 void eslADCS_getCalSunSensor();
 void print_send_ADCS_telemetry_packet(ADCS_telemetry_data telemetry_data);
 void print_payload_header(adcs_angrate_t ang_rates, adcs_attangles_t att_angles,adcs_currstate_t current_state,unsigned long t);
 void test_commissioning_packet();
+void eslADCS_getSatelliteVelocityVec(adcs_ecirefvel_t* sat_vel);
 #endif

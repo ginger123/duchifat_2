@@ -61,7 +61,7 @@ void taskmnlp()//task for the mnlp operation
 	}
 	turn_off_payload();
 	}
-
+	f_enterFS();
 	while (1)
 	{
 		kicktime(MNLP_THREAD);
@@ -162,33 +162,36 @@ void taskmnlp()//task for the mnlp operation
 					//
 				}
 
-				//error handling
-				if(states & STATE_MNLP_ON)
+			}
+			//error handling
+
+			if(states & STATE_MNLP_ON)
+			{
+				Time_getUnixEpoch(&cur_t);
+				//printf("last mnlp HK packet: %lu, time now %lu diff is %lu\n",timeout_mnlp,cur_t,cur_t-timeout_mnlp);
+				if(cur_t-timeout_mnlp>= MNLP_TIMEOUT)
 				{
-					Time_getUnixEpoch(&cur_t);
-					if(cur_t-timeout_mnlp>= MNLP_TIMEOUT)
+					printf("timeout\n");
+					timeout_mnlp=cur_t;
+					build_save_error_packets(active_idx,0);//got a timeout error
+					if(sqnc_on == 1)
 					{
-						printf("timeout\n");
-						timeout_mnlp=cur_t;
-						build_save_error_packets(active_idx,0);//got a timeout error
-						error_handle();
-						if(sqnc_on == 1)
-						{
-								vTaskDelete(task_mNLP_sqnc);
-								sqnc_on = 0;
-						}
+						vTaskDelete(task_mNLP_sqnc);
+						sqnc_on = 0;
 					}
-					if(mnlp_err!=0)
+					error_handle();
+
+				}
+				if(mnlp_err!=0)
+				{
+					build_save_error_packets(active_idx,mnlp_err);//got an actual error from mnlp
+					if(sqnc_on == 1)
 					{
-						build_save_error_packets(active_idx,mnlp_err);//got an actual error from mnlp
-						error_handle();
-						mnlp_err=0;
-						if(sqnc_on == 1)
-						{
-								vTaskDelete(task_mNLP_sqnc);
-								sqnc_on = 0;
-						}
+						vTaskDelete(task_mNLP_sqnc);
+						sqnc_on = 0;
 					}
+					error_handle();
+					mnlp_err=0;
 
 				}
 			}
@@ -585,8 +588,11 @@ void build_save_error_packets(int active_idx,unsigned char err)
 void error_handle( )
 {
 
-
+	states&=~STATE_MNLP_ON;
 	turn_off_payload();
-	vTaskDelay(60000);
-	turn_on_payload();
+	vTaskDelay(30000);
+	kicktime(MNLP_THREAD);
+	vTaskDelay(30000);
+	kicktime(MNLP_THREAD);
+	//turn_on_payload();
 }

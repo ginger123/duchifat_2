@@ -78,5 +78,6 @@
 extern unsigned char frame_count;
 extern unsigned char tc_count;
 extern unsigned long timestamp[THREAD_TIMESTAMP_LEN];//0=main 1=mnlp 2=mnlplistener 3=adcs 4=reset
+extern gom_eps_channelstates_t channels_state;
 
 #endif /* MAININCLUDE_H_ */

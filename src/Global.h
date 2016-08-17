@@ -38,8 +38,7 @@
 #define TIME_SIZE 5
 #define ADCS_STAGE_ADDR 0x10D0
 #define ADCS_STAGE_SIZE 4
-
-
+#define ARM_DEPLOY_ADDR 0x10E0
 
 
 #define FIRST_ACTIVATION_SIZE 4
@@ -96,6 +95,7 @@ void reset_subsystems(unsigned int reset_idx,gom_eps_channelstates_t channels_st
 Boolean Get_Mute();
 
 void deploy_ants(gom_eps_channelstates_t channels_state);
+void redeploy_ants(gom_eps_channelstates_t channels_state);
 
 double Min(double a, double b);
 double Max(double a, double b);

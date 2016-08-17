@@ -31,7 +31,8 @@
 #define MAX_SQNC_NUM 25
 #define TO_SEND_LENGTH 3
 
-#define MNLP_TIMEOUT 300
+#define MNLP_TIMEOUT 400
+//#define MNLP_TIMEOUT 10
 
 #define GPIO_04	PIN_GPIO04
 #define GPIO_05	PIN_GPIO05

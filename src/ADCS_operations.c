@@ -40,11 +40,12 @@ void eslADCS_setPwrCtrlDevice(adcs_powerdev_t device_ctrl)
 
 void eslADCS_setAttitudeCtrlMode(adcs_ctrlmodeset_t modesettings)
 {
-	unsigned char arr[3];
+	unsigned char arr[4];
 	arr[0] = modesettings.fields.mode;
-	arr[1] = modesettings.fields.timeout & 0xff;
-	arr[2] = (modesettings.fields.timeout >> 8) & 0xff;
-	ADCS_command(18, arr, 3);
+	arr[1] = modesettings.fields.override;
+	arr[2] = modesettings.fields.timeout & 0xff;
+	arr[3] = (modesettings.fields.timeout >> 8) & 0xff;
+	ADCS_command(18, arr, 4);
 }
 
 void eslADCS_deployMagnetometer(unsigned char act_timeout)
@@ -69,7 +70,7 @@ void eslADCS_setWheelSpeed(adcs_wheelspeed_t cmd_speed)
 	arr[2] = cmd_speed.fields.speedY & 0xff;
 	arr[3] = (cmd_speed.fields.speedY >> 8) & 0xff;
 	arr[4] =cmd_speed.fields.speedZ & 0xff;
-	arr[5] = (cmd_speed.fields.speedY >> 8) & 0xff;
+	arr[5] = (cmd_speed.fields.speedZ >> 8) & 0xff;
 	ADCS_command(32, arr, 6);
 }
 
@@ -137,7 +138,7 @@ void eslADCS_getMagneticFieldVec(adcs_magfieldvec_t* mag_field)
 	vTaskDelay(5 / portTICK_RATE_MS);
 	I2C_read(0x12,data,6);
 	//printf("magnetic field vector\n");
-	//print_array(data,6);
+	print_array(data,6);
 
 	mag_field->fields.x_magfield = data[1]<<8;
 	mag_field->fields.x_magfield += data[0];
@@ -149,24 +150,21 @@ void eslADCS_getMagneticFieldVec(adcs_magfieldvec_t* mag_field)
 
 void eslADCS_getMagnetorquerCmd(adcs_magnetorq_t* mag_cmd)
 {
-	int i=0;
+
 	unsigned char data[6];
 	unsigned char comm = 155;
 	I2C_write(0x12,&comm,1);
-	//ADCS_command(comm, NULL, 0);
+	vTaskDelay(5);
 	I2C_read(0x12,data,6);
 	printf("magnetotorquer data from adc: ");
-	for(i=0;i<6;i++)
-	{
-		printf("%x ",data[i]);
-	}
-	printf("\n");
-	mag_cmd->fields.magX = data[0]<<8;
-	mag_cmd->fields.magX += data[1];
-	mag_cmd->fields.magY = data[2]<<8;
-	mag_cmd->fields.magY += data[3];
-	mag_cmd->fields.magZ = data[4]<<8;
-	mag_cmd->fields.magZ += data[5];
+	print_array(data,6);
+
+	mag_cmd->fields.magX = data[0];
+	mag_cmd->fields.magX += data[1]<<8;
+	mag_cmd->fields.magY = data[2];
+	mag_cmd->fields.magY += data[3]<<8;
+	mag_cmd->fields.magZ = data[4];
+	mag_cmd->fields.magZ += data[5]<<8;
 }
 
 void eslADCS_getWheelSpeed(adcs_wheelspeed_t* wheel_speed)
@@ -174,14 +172,14 @@ void eslADCS_getWheelSpeed(adcs_wheelspeed_t* wheel_speed)
 	unsigned char data[6];
 	unsigned char comm = 154;
 	I2C_write(0x12,&comm,1);
-	//ADCS_command(comm, NULL, 1);
+	vTaskDelay(5);
 	I2C_read(0x12, data, 6);
-	wheel_speed->fields.speedX = data[0]<<8;
-	wheel_speed->fields.speedX += data[1];
-	wheel_speed->fields.speedY = data[2]<<8;
-	wheel_speed->fields.speedY += data[3];
-	wheel_speed->fields.speedZ = data[4]<<8;
-	wheel_speed->fields.speedZ += data[5];
+	wheel_speed->fields.speedX = data[0];
+	wheel_speed->fields.speedX += data[1]<<8;
+	wheel_speed->fields.speedY = data[2];
+	wheel_speed->fields.speedY += data[3]<<8;
+	wheel_speed->fields.speedZ = data[4];
+	wheel_speed->fields.speedZ += data[5]<<8;
 }
 
 void eslADCS_getRawNadirSensor(adcs_raw_nadir_t *raw_nadir)
@@ -246,9 +244,10 @@ void eslADCS_getCalNadirSensor()
 
 }
 
-void eslADCS_getCalSunSensor(adcs_raw_sun_t* raw_sun)
+
+/*void eslADCS_getCalSunSensor(adcs_raw_sun_t* raw_sun)
 {
-	unsigned char data[6];
+		unsigned char data[6];
 		unsigned char comm = 151;
 		short sun_vec[3];
 		I2C_write(0x12,&comm,1);
@@ -269,7 +268,7 @@ void eslADCS_getCalSunSensor(adcs_raw_sun_t* raw_sun)
 		printf("X nadir vector is %f\n",(float)sun_vec[0]/32768);
 		printf("Y nadir vector is %f\n",(float)sun_vec[1]/32768);
 		printf("Z nadir vector is %f\n",(float)sun_vec[2]/32768);
-}
+}*/
 
 
 
@@ -278,7 +277,7 @@ void eslADCS_getRawCssMeasurements(adcs_raw_css_t* raw_css)
 	unsigned char data[6];
 	unsigned char comm = 166;
 	I2C_write(0x12,&comm,1);
-	//ADCS_command(comm, NULL, 0);
+	vTaskDelay(5);
 	I2C_read(0x12, data, 6);
 	printf("CSS measurements\n");
 	print_array(data,6);
@@ -299,8 +298,8 @@ void eslADCS_getCurrentTime(adcs_unixtime_t* unix_time)
 	//ADCS_commands(comm, NULL, 0);
 	I2C_read(0x12, data, 4);
 	unix_time->fields.unix_time_sec = data[0]<<24;
-	unix_time->fields.unix_time_sec = data[1]<<16;
-	unix_time->fields.unix_time_sec = data[2]<<8;
+	unix_time->fields.unix_time_sec += data[1]<<16;
+	unix_time->fields.unix_time_sec += data[2]<<8;
 	unix_time->fields.unix_time_sec += data[3];
 }
 
@@ -375,7 +374,7 @@ void ADCS_get_status(unsigned char *status)
 	I2C_read(0x12, status, 6);
 	//print_array(status, 6);
 }
-
+/*
 void eslADCS_Magnetometer_Boom_Deployment_Enabled(Boolean* Magnetometer_Status)
 {
 	unsigned char comm = 136;
@@ -384,7 +383,7 @@ void eslADCS_Magnetometer_Boom_Deployment_Enabled(Boolean* Magnetometer_Status)
 	vTaskDelay(5 / portTICK_RATE_MS);
 	I2C_read(0x12, data, 48);
 	Magnetometer_Status = data[12];
-}
+}*/
 
 
 void ADCS_command(unsigned char id, unsigned char* data, unsigned int dat_len)
@@ -691,10 +690,8 @@ void get_sat_llh_pos(adcs_refllhcoord_t *llh_in)
 	llh_in->fields.longitud += data[2];
 	llh_in->fields.altitude = data[5] << 8;
 	llh_in->fields.altitude += data[4];
-	print_array(data,6);
-	printf("latitude is: %f\n", (float)llh_in->fields.latitude * 0.01);
-	printf("longitud is: %f\n", (float)llh_in->fields.longitud * 0.01);
-	printf("altitude is: %f\n",  (float)llh_in->fields.altitude * 0.02);
+	//print_array(data,6);
+
 }
 
 void adcs_reset(unsigned char type)
@@ -708,8 +705,37 @@ void adcs_reset(unsigned char type)
 	vTaskDelay(15000);
 }
 
-void adcs_set_estimation_param()
+void print_estimation_params(unsigned char *ptr)
 {
+	int   param_int;
+	float param_f;
+
+	param_int = ptr[0] + 256*ptr[1]+(256^2)*ptr[2]+(256^3)*ptr[3];
+	param_f = (float)param_int;
+	printf("system noise %f\n ",param_f);
+
+	ptr+=4;
+	param_int = ptr[0] + 256*ptr[1]+(256^2)*ptr[2]+(256^3)*ptr[3];
+	param_f = (float)param_int;
+	printf("Css measurement noise %f\n ",param_f);
+
+}
+
+void adcs_set_estimation_param(unsigned char mask_sensors)
+{
+	unsigned char comm = 192;
+	unsigned char data[240];
+	I2C_write(0x12, &comm, 1);
+	vTaskDelay(20 / portTICK_RATE_MS);
+	I2C_read(0x12, data, 240);
+	unsigned char * pointer_to_first_byte = &data[214];
+	printf("parameters before:\n");
+
+	print_estimation_params(pointer_to_first_byte);
+	pointer_to_first_byte[24] = mask_sensors;
+	//ADCS_command(91,pointer_to_first_byte,26);
+	//printf("parameters after:\n");
+	//print_estimation_params(pointer_to_first_byte);
 }
 
 void eslADCS_getSatelliteVelocityVec(adcs_ecirefvel_t* sat_vel)
@@ -727,9 +753,6 @@ void eslADCS_getSatelliteVelocityVec(adcs_ecirefvel_t* sat_vel)
 	sat_vel->fields.z_velocity = data[5] << 8;
 	sat_vel->fields.z_velocity += data[4];
 
-	printf("x velocity: %d", sat_vel->fields.x_velocity);
-	printf(" y velocity: %d", sat_vel->fields.y_velocity);
-	printf(" z velocity: %d", sat_vel->fields.z_velocity);
 }
 
 void print_send_ADCS_telemetry_packet(ADCS_telemetry_data telemetry_data)

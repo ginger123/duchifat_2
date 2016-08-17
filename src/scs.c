@@ -221,7 +221,10 @@ void tc_verification_report(rcvd_packet decode,unsigned char type,unsigned int c
 	else {
 		report.len=4;
 	}
-	send_SCS_pct(report);
+	if(!Get_Mute())
+	{
+			send_SCS_pct(report);
+	}
 }
 
 
