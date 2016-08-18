@@ -18,11 +18,11 @@
 #define SAVE_TELEMETRY_TIME 60
 #define MAIN_ITERATION_TIME 1000
 #define RESET_TIMEOUT 43200   	//second until reset
-//#define DEPLOY_TIME	  1800		// seconds until deployment
-#define DEPLOY_TIME	  10		// seconds until deployment
-#define BOOM_DEPLOY_TIME 5
-//#define REDEPLOY_TIME	  2700		// seconds until deployment
-#define REDEPLOY_TIME 120
+#define DEPLOY_TIME	  2700		// seconds until deployment
+//#define DEPLOY_TIME	  10		// seconds until deployment
+#define BOOM_DEPLOY_TIME 4     //CHANGE THIS TO 5 BEFORE LAUNCH!!
+#define REDEPLOY_TIME	  2700		// seconds until deployment
+//#define REDEPLOY_TIME 120
 #define AUTO_DEPLOYMENT_TIME 10
 
 
@@ -39,6 +39,7 @@
 #define ADCS_STAGE_ADDR 0x10D0
 #define ADCS_STAGE_SIZE 4
 #define ARM_DEPLOY_ADDR 0x10E0
+#define ARM_SECOND_DEPLOY_ADDR 0x10F0
 
 
 #define FIRST_ACTIVATION_SIZE 4

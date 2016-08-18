@@ -9,8 +9,8 @@
 typedef struct ADCS_Payload_Telametry
 {
 	int   epoch_time;
-	short estimated_anglar_rates[3];
 	short estimated_attitude_angles[3];
+	short estimated_anglar_rates[3];
 	short current_Position[3];
 	short demo;
 }ADCS_Payload_Telemetry;

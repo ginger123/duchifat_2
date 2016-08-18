@@ -19,6 +19,7 @@
 
 #define DETUMBLING_ORBIT 5400
 #define WHEEL_SPEED_TEST_TIME 120
+#define DEPLOY_STAGE_TIME     60
 
 int adcs_stage;
 int adcs_stage_param = 0;
@@ -67,7 +68,12 @@ void adc_stages(int stage)
 			adcs_stage = 8;
 			ADC_Stage_8();
 			break;
-		default:
+		case 9:
+			printf("%d\n", 9);
+			adcs_stage = 9;
+			adcs_stage_9();
+			break;
+			default:
 		break;
 	}
 }
@@ -114,8 +120,8 @@ void ADC_Stage_1()
 		commisioning_data.magnetic_field_vactor[2] = Mag_field.fields.z_magfield;
 
 		WritewithEpochtime("adcs_file",0, (char *) &commisioning_data, sizeof(ADCS_comissioning_data));
-		printf("delay for 10 seconds\n");
-		vTaskDelay(20000 / portTICK_RATE_MS);
+		//printf("delay for 10 seconds\n");
+		vTaskDelay(10000 / portTICK_RATE_MS);
 	}
 }
 
@@ -148,6 +154,7 @@ void ADC_Stage_2()
 
 	modesetting.fields.mode =  ctrl_mode_detumbling; //enter to detumbling mode
 	modesetting.fields.override = 0;
+	printf("timeout is set to %d\n",adcs_stage_param);
 	modesetting.fields.timeout = adcs_stage_param;
 
 	eslADCS_setAttitudeCtrlMode(modesetting);
@@ -184,6 +191,7 @@ void ADC_Stage_2()
 
 void ADC_Stage_3()
 {
+	int i;
 	adcs_powerdev_t Device_ctrl;
 	Device_ctrl.fields.pwr_motor = selection_on; //motor power on(1)
 	Device_ctrl.fields.motor_cubecontrol = selection_auto; //all others auto
@@ -208,27 +216,29 @@ void ADC_Stage_3()
 	eslADCS_setPwrCtrlDevice(Device_ctrl); //turn on motor power
 
 	unsigned char arm;
+	unsigned char arm2;
 	FRAM_read(&arm,ARM_DEPLOY_ADDR, 1);
-	if (arm==1)
+	FRAM_read(&arm2,ARM_SECOND_DEPLOY_ADDR, 1);
+	if (arm || arm2)
 	{
 		printf("deploy!!\n");
-		if (0)
-		{
-			eslADCS_deployMagnetometer(2); //first attempt entering what the value of the function to boom deploy
-			vTaskDelay(5000);
-			kicktime(ADCS_THREAD);
-			eslADCS_deployMagnetometer(5);
-			vTaskDelay(5000);
-			kicktime(ADCS_THREAD);
-			eslADCS_deployMagnetometer(10);
-		}
+
+		eslADCS_deployMagnetometer(2); //first attempt entering what the value of the function to boom deploy
+		vTaskDelay(5000);
+		kicktime(ADCS_THREAD);
+		eslADCS_deployMagnetometer(5);
+		vTaskDelay(5000);
+		kicktime(ADCS_THREAD);
+		eslADCS_deployMagnetometer(10);
+
 	}
 	else
 	{
 		printf("deployment not armed!!\n");
 	}
 
-	while (adcs_stage == 3)
+	//while (adcs_stage == 3)
+	for (i=0;i<DEPLOY_STAGE_TIME;i++)
 	{
 		kicktime(ADCS_THREAD);
 		commisioning_data.sid = ADC_SID;
@@ -245,9 +255,10 @@ void ADC_Stage_3()
 		commisioning_data.RAW_Magnetometer[0] = raw_mag.fields.magnetic_x; //getting the data to the commisioning_data struct
 		commisioning_data.RAW_Magnetometer[1] = raw_mag.fields.magnetic_y;
 		commisioning_data.RAW_Magnetometer[2] = raw_mag.fields.magnetic_z;
-		vTaskDelay(1000 / portTICK_RATE_MS); //dealy of 1s
 		WritewithEpochtime("adcs_file",0, (char *) &commisioning_data, sizeof(ADCS_comissioning_data));
+		vTaskDelay(1000 / portTICK_RATE_MS); //dealy of 1s
 	}
+	adcs_stage = 4;
 }
 
 void ADC_Stage_4() // calibration
@@ -289,8 +300,9 @@ void ADC_Stage_4() // calibration
 		commisioning_data.RAW_Magnetometer[0] = raw_mag.fields.magnetic_x; //getting the data to the commisioning_data struct
 		commisioning_data.RAW_Magnetometer[1] = raw_mag.fields.magnetic_y;
 		commisioning_data.RAW_Magnetometer[2] = raw_mag.fields.magnetic_z;
-		vTaskDelay(10000 / portTICK_RATE_MS); //delay of 10s
 		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));
+		vTaskDelay(10000 / portTICK_RATE_MS); //delay of 10s
+
 	}
 }
 
@@ -358,8 +370,8 @@ void ADC_Stage_5() // angular rate and pitch angle estimation
 		commisioning_data.sattelite_velocity[0] = sat_vel.fields.x_velocity;
 		commisioning_data.sattelite_velocity[1] = sat_vel.fields.y_velocity;
 		commisioning_data.sattelite_velocity[2] = sat_vel.fields.z_velocity;
-		vTaskDelay(10000 / portTICK_RATE_MS); //dealy of 10s
 		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));
+		vTaskDelay(10000 / portTICK_RATE_MS); //dealy of 10s
 	}
 }
 
@@ -401,6 +413,7 @@ void ADC_Stage_6() //wheel speed test
 
 	// start wheel speed test
 	wheelspeed_cmd.fields.speedX = 0;
+	printf("wheel speed is set to %d\n",adcs_stage_param);
 	wheelspeed_cmd.fields.speedY = adcs_stage_param;
 	wheelspeed_cmd.fields.speedZ = 0;
 
@@ -431,8 +444,9 @@ void ADC_Stage_6() //wheel speed test
 		commisioning_data.magnetic_field_vactor[1] = mag_field.fields.y_magfield;
 		commisioning_data.magnetic_field_vactor[2] = mag_field.fields.z_magfield;
 
-		vTaskDelay(1000 / portTICK_RATE_MS);
 		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));
+		vTaskDelay(1000 / portTICK_RATE_MS);
+
 	}
 	wheelspeed_cmd.fields.speedY = 0;
 	eslADCS_setWheelSpeed(wheelspeed_cmd); //check if there is a set function for this
@@ -469,19 +483,19 @@ void ADC_Stage_6() //wheel speed test
 		commisioning_data.magnetic_field_vactor[1] = mag_field.fields.y_magfield;
 		commisioning_data.magnetic_field_vactor[2] = mag_field.fields.z_magfield;
 		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));
-		vTaskDelay(1000 / portTICK_RATE_MS);
+		vTaskDelay(10000 / portTICK_RATE_MS);
 	}
 }
 
-void ADC_Stage_7() // Y tompson
+void ADC_Stage_7() // Y thompson
 {
 
-	adcs_powerdev_t Device_ctrl;
-	Device_ctrl.fields.pwr_motor = selection_on;
-	Device_ctrl.fields.motor_cubecontrol = selection_on;
-	Device_ctrl.fields.pwr_cubesense = selection_on;
-	Device_ctrl.fields.pwr_gpsantlna = selection_auto;
-	Device_ctrl.fields.signal_cubecontrol = selection_on;
+	//adcs_powerdev_t Device_ctrl;
+	//Device_ctrl.fields.pwr_motor = selection_on;
+	//Device_ctrl.fields.motor_cubecontrol = selection_on;
+	//Device_ctrl.fields.pwr_cubesense = selection_on;
+	//Device_ctrl.fields.pwr_gpsantlna = selection_auto;
+	//Device_ctrl.fields.signal_cubecontrol = selection_on;
 	adcs_raw_nadir_t raw_nadir;
 	adcs_raw_sun_t raw_sun;
 	adcs_raw_css_t raw_css;
@@ -498,13 +512,23 @@ void ADC_Stage_7() // Y tompson
 	unsigned char mask_sensors;
 
 	eslADCS_setStateADCS(state_enabled);
+
+	adcs_powerdev_t Device_ctrl;
+	Device_ctrl.fields.pwr_motor = selection_on;
+	Device_ctrl.fields.motor_cubecontrol = selection_auto;
+	Device_ctrl.fields.pwr_cubesense = selection_auto;
+	Device_ctrl.fields.pwr_gpsantlna = selection_auto;
+	Device_ctrl.fields.signal_cubecontrol = selection_auto;
+	eslADCS_setPwrCtrlDevice(Device_ctrl);
+
+
 	mask_sensors = 0x07;
 	adcs_set_estimation_param(mask_sensors);
 
 	eslADCS_setEstimationMode(mode);
 
-	modesetting.fields.mode = 3;
-	modesetting.fields.override = 0;
+	modesetting.fields.mode = ctrl_mode_ymomentum_initial;
+	modesetting.fields.override = 1;
 	modesetting.fields.timeout = adcs_stage_param;
 	eslADCS_setAttitudeCtrlMode(modesetting);
 
@@ -547,8 +571,10 @@ void ADC_Stage_7() // Y tompson
 		commisioning_data.RAW_sun_sensors[3] = raw_sun.fields.sun_result;
 
 		get_sat_llh_pos(&llh_in);
-		vTaskDelay(10000 / portTICK_RATE_MS); //Delay of 10s
+
+
 		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));
+		vTaskDelay(10000 / portTICK_RATE_MS); //Delay of 10s
 	}
 	eslADCS_setEstimationMode(mode1);
 }
@@ -616,13 +642,105 @@ void ADC_Stage_8()
 		commisioning_data.RAW_sun_sensors[3] = raw_sun.fields.sun_result;
 		//eslADCS_getCalSunSensor(&raw_sun);
 		//eslADCS_getCalNadirSensor(&raw_sun);
+		printf("roll angle is %f pitch %f yaw %f\n",att_angles.fields.roll/100.0,att_angles.fields.pitch/100.0,att_angles.fields.yaw/100.0);
 		vTaskDelay(10000 / portTICK_RATE_MS);
 		WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));;
 	}
 }
 
 
+void adcs_stage_9()
+{
+	adcs_powerdev_t Device_ctrl;
+		adcs_angrate_t Ang_rates;
+		adcs_attangles_t att_angles;
+		//adcsconf_ratesensor_t conf_ratesensor;
+		adcs_raw_css_t raw_css;
+		adcs_raw_nadir_t raw_nadir;
+		ADCS_comissioning_data commisioning_data;
+		adcs_raw_sun_t raw_sun;
+		adcs_angrate_t Sen_rates;
+		adcs_wheelspeed_t wheelspeed_cmd;
+		adcs_ctrlmodeset_t modesetting;
+		eslADCS_setStateADCS(state_enabled);
 
+		Device_ctrl.fields.pwr_motor = selection_auto;
+		Device_ctrl.fields.motor_cubecontrol = selection_auto;
+		Device_ctrl.fields.pwr_cubesense = selection_on;
+		Device_ctrl.fields.pwr_gpsantlna = selection_auto;
+		Device_ctrl.fields.signal_cubecontrol = selection_auto;
+
+		unsigned char mask_sensors = 0x07;
+		adcs_set_estimation_param(mask_sensors);
+		float avg_x=0,avg_z=0;
+		eslADCS_setPwrCtrlDevice(Device_ctrl);
+
+
+		while (adcs_stage == 9)
+		{
+			kicktime(ADCS_THREAD);
+			commisioning_data.sid = ADC_SID;
+			commisioning_data.stage = 9;
+			eslADCS_getEstimatedAngRates(&Ang_rates);
+			commisioning_data.estimated_anglar_rates[0] = Ang_rates.fields.x_angrate; //getting the data to the commisioning_data struct
+			commisioning_data.estimated_anglar_rates[1] = Ang_rates.fields.y_angrate;
+			commisioning_data.estimated_anglar_rates[2] = Ang_rates.fields.z_angrate;
+			eslADCS_getEstimatedAttAngles(&att_angles);
+			commisioning_data.estimated_attitude_angles[0] = att_angles.fields.pitch;
+			commisioning_data.estimated_attitude_angles[1] = att_angles.fields.roll;
+			commisioning_data.estimated_attitude_angles[2] = att_angles.fields.yaw;
+			eslADCS_getSensorRates(&Sen_rates); //filling the Sen_rates with data
+			commisioning_data.sensor_rates[0] = Sen_rates.fields.x_angrate; //getting the data to the commisioning_data struct
+			commisioning_data.sensor_rates[1] = Sen_rates.fields.y_angrate;
+			commisioning_data.sensor_rates[2] = Sen_rates.fields.z_angrate;
+			eslADCS_getRawCssMeasurements(&raw_css);
+			commisioning_data.RAW_CSS[0] = raw_css.fields.css_1;
+			commisioning_data.RAW_CSS[1] = raw_css.fields.css_2;
+			commisioning_data.RAW_CSS[2] = raw_css.fields.css_3;
+			commisioning_data.RAW_CSS[3] = raw_css.fields.css_4;
+			commisioning_data.RAW_CSS[4] = raw_css.fields.css_5;
+			commisioning_data.RAW_CSS[5] = raw_css.fields.css_6;
+
+
+		    eslADCS_getRawNadirSensor(&raw_nadir);
+		    commisioning_data.RAW_nadir_sensors[0] = raw_nadir.fields.nadir_centroid_x;
+		    commisioning_data.RAW_nadir_sensors[1] = raw_nadir.fields.nadir_centroid_y;
+		    commisioning_data.RAW_nadir_sensors[2] = raw_nadir.fields.nadir_busystatus;
+		    commisioning_data.RAW_nadir_sensors[3] = raw_nadir.fields.nadir_result;
+			eslADCS_getRawSunSensor(&raw_sun);
+
+			commisioning_data.RAW_sun_sensors[0] = raw_sun.fields.sun_centroid_x;
+			commisioning_data.RAW_sun_sensors[1] = raw_sun.fields.sun_centroid_y;
+			commisioning_data.RAW_sun_sensors[2] = raw_sun.fields.sun_busystatus;
+			commisioning_data.RAW_sun_sensors[3] = raw_sun.fields.sun_result;
+			//eslADCS_getCalSunSensor(&raw_sun);
+			//eslADCS_getCalNadirSensor(&raw_sun);
+			avg_x = 0.9*avg_x + 0.1*att_angles.fields.roll/100.0;
+			//avg_y = 0.9*avg_y +0.1*att_angles.fields.pitch*100.0;
+			avg_z = 0.9*avg_z + 0.1*att_angles.fields.yaw/100.0;
+			printf("roll angle is %f pitch %f yaw %f\n",att_angles.fields.roll/100.0,att_angles.fields.pitch/100.0,att_angles.fields.yaw/100.0);
+			if(avg_x>30.0 || avg_x<-30 || avg_z>30 || avg_z<-30)
+			{
+				printf("--------------------------re - detumbling!!!!! \n-------------------------");
+				modesetting.fields.mode = ctrl_mode_detumbling;
+				modesetting.fields.override = 0;
+				modesetting.fields.timeout = 0;
+				eslADCS_setAttitudeCtrlMode(modesetting);// go to detumbling
+
+				wheelspeed_cmd.fields.speedX = 0;
+				wheelspeed_cmd.fields.speedY = 0;
+				wheelspeed_cmd.fields.speedZ = 0;
+				eslADCS_setWheelSpeed(wheelspeed_cmd);//stop wheel
+
+				eslADCS_setEstimationMode(est_magnetometer_rate); //set the estimation mode as ekf
+
+			}
+
+			WritewithEpochtime("adcs_file",0,(char *) &commisioning_data, sizeof(ADCS_comissioning_data));;
+			vTaskDelay(500 / portTICK_RATE_MS);
+		}
+
+}
 
 
 void task_adcs_commissioning()
@@ -652,6 +770,7 @@ void task_adcs_commissioning()
 	{
 		printf("enter stage %d\n",adcs_stage);
 		adc_stages(adcs_stage);
+		vTaskDelay(1000);
 	}
 }
 

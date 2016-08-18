@@ -50,7 +50,7 @@ void Set_Cursys(unsigned short cursys)//in mA
 
 void Set_Curout3V3(unsigned short curout)//in mA
 {
-	glb.curout3V3 = (unsigned char)Max(0,Min(255,(double)40*curout));
+	glb.curout3V3 = (unsigned char)Max(0,Min(255,(double)40*curout/1000));
 }
 
 void Set_Curout5V(unsigned short curout)//in mA

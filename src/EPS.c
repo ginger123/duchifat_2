@@ -152,6 +152,9 @@ void Safe(gom_eps_channelstates_t* channels_state)
 void print_general_hk_packet(HK_Struct Packet)
 {
 	// print all values
+	unsigned long rt;
+	Time_getUnixEpoch(&rt);
+	printf("---HOUSKEEPING AT TIME %lu--- \n",rt);
 	printf("battery voltage %d\n mV",Packet.HK_vbatt);
 	printf("Boost converters: %d,%d,%d mV\n", Packet.HK_vboost[0],Packet.HK_vboost[1],Packet.HK_vboost[2]);
 	printf("Currents: %d,%d,%d mA\n", Packet.HK_curin[0],Packet.HK_curin[1],Packet.HK_curin[2]);
@@ -241,7 +244,7 @@ void HK_packet_build_save(gom_eps_hk_t tlm, ISIStrxvuRxTelemetry tlmRX, ISIStrxv
 	ccs_packet.len = sizeof(HK_Struct);
 	ccs_packet.data = (unsigned char*)&Packet;
 
-	//print_general_hk_packet(Packet);
+	print_general_hk_packet(Packet);
 
 	switch_endian(ccs_packet.data + end_offset, size - end_offset);
 	//send_SCS_pct(ccs_packet);

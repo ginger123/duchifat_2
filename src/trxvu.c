@@ -14,7 +14,7 @@ unsigned int dump_completed = 0;
 unsigned int dump_created = 0;
 unsigned char beacon_count=0;
 xTaskHandle taskDumpHandle;
-unsigned long last_wod;
+unsigned long last_wod=0;
 void update_wod(gom_eps_hk_t EpsTelemetry_hk)
 {
 	Set_Vbatt(EpsTelemetry_hk.fields.vbatt);
@@ -161,7 +161,7 @@ void act_upon_comm(unsigned char* in, gom_eps_channelstates_t channels_state)
 	in++;
 	rcvd_packet decode;
 	unsigned char arm;
-
+	unsigned char arm2;
 	parse_comm(&decode,in);
 	if(!decode.isvalidcrc) return;
 	printf("\n-----packet structure start-----\n");
@@ -235,11 +235,24 @@ void act_upon_comm(unsigned char* in, gom_eps_channelstates_t channels_state)
 				{
 					if (decode.data[0]==59)
 						zero_initial_activation();
+
+					FRAM_read(&arm,ARM_DEPLOY_ADDR, 1);
+					FRAM_read(&arm2,ARM_SECOND_DEPLOY_ADDR, 1);
+
+					if (arm || arm2)
+					{
+						printf("***************re-activated and armed - ready for launch!!!**********\n");
+					}
+					else
+					{
+						printf("***************re-activated but not armed - NOT ready for launch!!!**********\n");
+					}
+
 				}
 				if(decode.srvc_subtype==137) //change adcs state
 				{
 					adcs_stage=decode.data[0];
-					adcs_stage_param = decode.data[1]*(256^3)+decode.data[2]*(256^2)+decode.data[3]*256+decode.data[4];
+					adcs_stage_param = decode.data[1]*(256*256*256)+decode.data[2]*(256*256)+decode.data[3]*256+decode.data[4];
 					FRAM_write((unsigned char *)&adcs_stage, ADCS_STAGE_ADDR,4);
 					printf("Change stage to %d\n",adcs_stage);
 				}
@@ -272,15 +285,26 @@ void act_upon_comm(unsigned char* in, gom_eps_channelstates_t channels_state)
 				FRAM_read(script_ptr, SCRIPT_RAW_ADDR, len);
 
 				// check CRC
-				if(Fletcher16(script_ptr,len)) printf("bad script");
-				else{
-				printf("received full script\n printing it now\n");
-				print_array(script_ptr,len);				// write to appropriate address
-
-				FRAM_write(script_ptr,scripts_adresses[decode.data[0]],len);//save script numbe
+				if(Fletcher16(script_ptr,len))
+				{
+					printf("bad script\n");
+					tc_verification_report(decode,TC_SCRIPT_FAIL,ERR_ILEGAL_DATA,in);
 				}
+				else{
+					printf("received full script\n printing it now\n");
+					print_array(script_ptr,len);
+					// write to appropriate address
+					FRAM_write(script_ptr,scripts_adresses[decode.data[0]],len);//save script numbe
+					tc_verification_report(decode,TC_SCRIPT_SUCCESS,NO_ERR,in);
+				}
+
+				//prepare to return
+				free(decode.data);
+				tc_count++;
+				FRAM_write(&tc_count,TC_COUNT_ADDR,1);
 				// free memory
 				free(script_ptr);
+				return;
 			}
 			if(decode.srvc_subtype==133)//delete script
 			{
@@ -367,6 +391,7 @@ void act_upon_comm(unsigned char* in, gom_eps_channelstates_t channels_state)
 				printf("set magnetometer config\n");
 				print_array(decode.data,30);
 				ADCS_set_magnetometer_config(decode.data);
+				tc_verification_report(decode,TC_SCRIPT_SUCCESS,NO_ERR,in);//subtype 9
 			}
 			if(decode.srvc_subtype == 6)  // heaters
 			{
@@ -376,15 +401,19 @@ void act_upon_comm(unsigned char* in, gom_eps_channelstates_t channels_state)
 			{
 				if (decode.data[0]==15)
 				{
-					printf("arm - you can now deploy!\n");
-					arm = 1;
+					printf("***************** ARM - you can now deploy!**********************\n");
+					arm = 0xaa;
+					arm2= 0xaa;
 					FRAM_write(&arm,ARM_DEPLOY_ADDR,1);
+					FRAM_write(&arm2,ARM_SECOND_DEPLOY_ADDR, 1);
 				}
 				else
 				{
 					printf("disarm - you can not deploy!\n");
 					arm = 0;
+					arm2=0;
 					FRAM_write(&arm,ARM_DEPLOY_ADDR,1);
+					FRAM_write(&arm2,ARM_SECOND_DEPLOY_ADDR,1);
 				}
 			}
 
@@ -503,9 +532,9 @@ void dump(void *arg)
 
 		for(i=0;i<num_packets;i++)//sending packets
 		{
-			printf("loop counter %d\n",i);
+
 			FileReadIndex(file, (char *)temp_data,size+5,start_idx+i);
-			print_array(temp_data,size+5);
+			//print_array(temp_data,size+5);
 			// convert time to epoch time
 			t_l = convert_epoctime((char *) temp_data);
 			t_l = t_l -30*365*24*3600-24*3600*7;
@@ -515,12 +544,11 @@ void dump(void *arg)
 
 			switch_endian(pct.data + end_offest, size - end_offest);
 
-			//delete_packets_from_file(file, todel,size);
 			send_SCS_pct(pct);
 			vTaskDelay(100);
-			printf("sent packet %d\n",i);
-		}
 
+		}
+		printf("sent  %d packets\n",i);
 		free(temp_data);
 
 	}
@@ -647,13 +675,15 @@ void trxvu_logic(unsigned long *start_gs_time, unsigned long *time_now_unix,gom_
 
 
 //void print_wod(short vbat, short vcur_5,short vcur_3,short eps_temp,short com_temp)
-void print_wod(short vbat, short vcur_5,short vcur_3,short eps_temp,short com_temp)
+void print_wod(short vbat, short vcur_5,short vcur_3,short eps_temp,short com_temp, int bat_temp)
 {
+	printf("---WOD packet params---\n");
 	printf("vbat is %d\n",vbat);
 	printf("5v current is %d\n",vcur_5);
 	printf("3v current is %d\n",vcur_3);
 	printf("eps_temp %d\n",eps_temp);
 	printf("com_temp %d\n",com_temp);
+	printf("bat_temp %d\n",bat_temp);
 }
 
 void Beacon(gom_eps_hk_t EpsTelemetry_hk)
@@ -664,6 +694,8 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 	unsigned long cur_wod;
 	float eng_value = 0.0;
 	ISIStrxvuRxTelemetry telemetry;
+	gom_eps_hkparam_t myEpsTelemetry_param;
+	int temp_batt;
 
 	// Telemetry values are presented as raw values
 	//printf("\r\nGet all Telemetry at once in raw values \r\n\r\n");
@@ -679,16 +711,17 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 	beacon.len=9;
 	update_time(beacon.c_time);
 
-	print_wod(EpsTelemetry_hk.fields.vbatt, EpsTelemetry_hk.fields.curout[0],EpsTelemetry_hk.fields.curout[4],EpsTelemetry_hk.fields.temp[0],EpsTelemetry_hk.fields.temp[4]);
+	GomEpsGetHkData_param(0, &myEpsTelemetry_param);
+	temp_batt = myEpsTelemetry_param.fields.tempBattery;
+	print_wod(EpsTelemetry_hk.fields.vbatt, EpsTelemetry_hk.fields.curout[0],EpsTelemetry_hk.fields.curout[3],EpsTelemetry_hk.fields.temp[0],EpsTelemetry_hk.fields.temp[0],temp_batt);
 
 	Set_Vbatt(EpsTelemetry_hk.fields.vbatt);
 	Set_Cursys(EpsTelemetry_hk.fields.cursys);
-	Set_Curout3V3(EpsTelemetry_hk.fields.curout[4]);
+	Set_Curout3V3(EpsTelemetry_hk.fields.curout[3]);
 	Set_Curout5V(EpsTelemetry_hk.fields.curout[0]);
 	Set_tempCOMM(eng_value);
 	Set_tempEPS(EpsTelemetry_hk.fields.temp[0]);
-	Set_tempBatt(EpsTelemetry_hk.fields.temp[4]);
-
+	Set_tempBatt(temp_batt);
 	if(states & (STATE_MNLP_ON_EPS | STATE_MNLP_ON_GROUND)) dat[1]=1;
 	else dat[1]=0;
 	dat[2]=glb.vbatt;
@@ -698,37 +731,35 @@ void Beacon(gom_eps_hk_t EpsTelemetry_hk)
 	dat[6]=glb.tempCOMM;
 	dat[7]=glb.tempEPS;
 	dat[8]=glb.tempBatt;
-
+	char wod_file[] ={"wod_file"};
 	Time_getUnixEpoch(&cur_wod);
-	if(cur_wod-last_wod>60)//of more than 60 sec elapsed after last save. save wod again
+	if(cur_wod-last_wod>=SAVE_TELEMETRY_TIME)//if more than 60 sec elapsed after last save. save wod again
 	{
-		WritewithEpochtime("wod_file",0,(char *)dat,9);
+		WritewithEpochtime(wod_file,0,(char *)dat,9);
 		last_wod=cur_wod;
 	}
 
 
 
 
-	if(!Get_Mute())
+	if(!Get_Mute() && !dump_created)
 	{
 
-		//printf("send beacon\n");
 		update_time(beacon.c_time);
-
 		if(beacon_count%3==0)
 		{
 			beacon_count=0;
-			IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_1200);
+			IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_1200);//1200
 
 		}
 		else
 		{
-			IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_9600);
+			IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_9600);//9600
 		}
 		beacon_count++;
 		send_SCS_pct(beacon);
 
-		IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_1200);
+		IsisTrxvu_tcSetAx25Bitrate(0,trxvu_bitrate_9600);//should be 9600 but is still 1200 - 9600 works though
 	}
 
 }

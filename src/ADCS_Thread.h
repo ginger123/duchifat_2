@@ -44,6 +44,7 @@ void ADC_Stage_5();
 void ADC_Stage_6();
 void ADC_Stage_7();
 void ADC_Stage_8();
+void adcs_stage_9();
 
 
 

@@ -155,7 +155,7 @@ void taskmnlp()//task for the mnlp operation
 						}
 						else
 						{
-							printf("missed sequence!! - add time table counter %d\n",tt_ctr+1);
+
 							tt_ctr += 1;
 						}
 					}
@@ -446,7 +446,7 @@ void mnlp_listener()
 			{
 				readPtr++;
 			}
-
+			printf("MNLP data received is:\n");
 			print_array(readPtr,readSize);
 			if(readPtr[0]==0xBB)
 			{

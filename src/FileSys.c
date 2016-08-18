@@ -7,7 +7,7 @@ void InitializeFS(int delete)
 	char ADC_comm[] = {"adcs_file"};
 	char ADC_tlm[] = {"adcs_tlm_file"};
 	char mnlp_file[] ={"mnlp"};
-	char wod_file[] = {"wod"};
+	char wod_file[] = {"wod_file"};
 	F_FILE *file;
 
 	hcc_mem_init(); /* Initialize the memory to be used by filesystem */
@@ -259,7 +259,6 @@ int find_number_of_packets(char Filename[],int linesize,unsigned long time_a,uns
 			break;//edited this so function returns if end of file is reached #BigFuckingIf
 		}
 		curr_time = convert_epoctime(temp);
-		printf("curr time is %lu last time is %lu\n",curr_time,time_b);
 		if( (curr_time > time_a) && (curr_time< time_b))
 		{
 			num++;

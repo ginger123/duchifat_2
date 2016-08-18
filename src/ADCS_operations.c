@@ -137,9 +137,6 @@ void eslADCS_getMagneticFieldVec(adcs_magfieldvec_t* mag_field)
 	//ADCS_command(comm, NULL, 0);
 	vTaskDelay(5 / portTICK_RATE_MS);
 	I2C_read(0x12,data,6);
-	//printf("magnetic field vector\n");
-	print_array(data,6);
-
 	mag_field->fields.x_magfield = data[1]<<8;
 	mag_field->fields.x_magfield += data[0];
 	mag_field->fields.y_magfield = data[3]<<8;
@@ -156,9 +153,6 @@ void eslADCS_getMagnetorquerCmd(adcs_magnetorq_t* mag_cmd)
 	I2C_write(0x12,&comm,1);
 	vTaskDelay(5);
 	I2C_read(0x12,data,6);
-	printf("magnetotorquer data from adc: ");
-	print_array(data,6);
-
 	mag_cmd->fields.magX = data[0];
 	mag_cmd->fields.magX += data[1]<<8;
 	mag_cmd->fields.magY = data[2];
@@ -180,6 +174,7 @@ void eslADCS_getWheelSpeed(adcs_wheelspeed_t* wheel_speed)
 	wheel_speed->fields.speedY += data[3]<<8;
 	wheel_speed->fields.speedZ = data[4];
 	wheel_speed->fields.speedZ += data[5]<<8;
+
 }
 
 void eslADCS_getRawNadirSensor(adcs_raw_nadir_t *raw_nadir)
@@ -190,8 +185,6 @@ void eslADCS_getRawNadirSensor(adcs_raw_nadir_t *raw_nadir)
 	vTaskDelay(5 / portTICK_RATE_MS);
 	//ADCS_command(comm, NULL, 0);
 	I2C_read(0x12, data, 6);
-	printf("Raw Nadir sensor measurements\n");
-	print_array(data,6);
 	raw_nadir->fields.nadir_centroid_x = data[1]<<8;
 	raw_nadir->fields.nadir_centroid_x += data[0];
 	raw_nadir->fields.nadir_centroid_y = data[3]<<8;
@@ -208,8 +201,6 @@ void eslADCS_getRawSunSensor(adcs_raw_sun_t* raw_sun)
 	vTaskDelay(5 / portTICK_RATE_MS);
 	//ADCS_command(comm, NULL, 0);
 	I2C_read(0x12, data, 6);
-	printf("Raw sun sensor measurements\n");
-	print_array(data,6);
 	raw_sun->fields.sun_centroid_x = data[1]<<8;
 	raw_sun->fields.sun_centroid_x += data[0];
 	raw_sun->fields.sun_centroid_y = data[3]<<8;
@@ -228,19 +219,12 @@ void eslADCS_getCalNadirSensor()
 	//ADCS_command(comm, NULL, 0);
 	I2C_read(0x12, data, 6);
 
-	printf("Raw Madir sensor measurements\n");
-	print_array(data,6);
-
 	nadir_vec[0] =data[1]<<8;
 	nadir_vec[0] +=data[0];
 	nadir_vec[1] =data[3]<<8;
 	nadir_vec[1] +=data[2];
 	nadir_vec[2] =data[5]<<8;
 	nadir_vec[2] +=data[4];
-
-	printf("X nadir vector is %f\n",(float)nadir_vec[0]/32768);
-	printf("Y nadir vector is %f\n",(float)nadir_vec[1]/32768);
-	printf("Z nadir vector is %f\n",(float)nadir_vec[2]/32768);
 
 }
 
@@ -279,9 +263,6 @@ void eslADCS_getRawCssMeasurements(adcs_raw_css_t* raw_css)
 	I2C_write(0x12,&comm,1);
 	vTaskDelay(5);
 	I2C_read(0x12, data, 6);
-	printf("CSS measurements\n");
-	print_array(data,6);
-
 	raw_css->fields.css_1 = data[0];
 	raw_css->fields.css_2 = data[1];
 	raw_css->fields.css_3 = data[2];
@@ -297,10 +278,10 @@ void eslADCS_getCurrentTime(adcs_unixtime_t* unix_time)
 	I2C_write(0x12,&comm,1);
 	//ADCS_commands(comm, NULL, 0);
 	I2C_read(0x12, data, 4);
-	unix_time->fields.unix_time_sec = data[0]<<24;
-	unix_time->fields.unix_time_sec += data[1]<<16;
-	unix_time->fields.unix_time_sec += data[2]<<8;
-	unix_time->fields.unix_time_sec += data[3];
+	unix_time->fields.unix_time_sec = data[0];
+	unix_time->fields.unix_time_sec += data[1]<<8;
+	unix_time->fields.unix_time_sec += data[2]<<16;
+	unix_time->fields.unix_time_sec += data[3]<<24;
 }
 
 
@@ -362,8 +343,11 @@ void eslADCS_telemetry_Time_Power_temp()
 	//printf("3v3 curr %d\n",telemetry_data.csense_3v3curr);
 	//printf("arm cputemp %d\n",telemetry_data.arm_cpuTemp);
 	//printf("telemtry 3v3curr %d\n",telemetry_data.ccontrol_3v3curr);
+
+	//printf("ADCS status: ");
+	//print_array(telemetry_data.status,6);
 	WritewithEpochtime("adcs_tlm_file",0,(char *) &telemetry_data, sizeof(ADCS_telemetry_data));
-	//print_send_ADCS_telemetry_packet(telemetry_data);
+	print_send_ADCS_telemetry_packet(telemetry_data);
 }
 
 void ADCS_get_status(unsigned char *status)
@@ -432,8 +416,8 @@ void eslADCS_getRawMagnetometerMeas(adcs_raw_magmeter_t* raw_mag)
 	raw_mag->fields.magnetic_y += data[3] << 8;
 	raw_mag->fields.magnetic_z = data[4];
 	raw_mag->fields.magnetic_z += data[5] << 8;
-	printf("raw magnetometer values:\n");
-	print_array(data,6);
+	//printf("raw magnetometer values: ");
+	//print_array(data,6);
 }
 
 void eslADCS_getCurrentPosition(adcs_currstate_t* current_state)
@@ -534,14 +518,14 @@ void eslADCS_getCalibration(adcs_calibration *calibration)
 	calibration->Nadir_sensor_mnt_ang[1] = data[60]<<8;
 	calibration->Nadir_sensor_mnt_ang[1] += data[59];
 	calibration->Nadir_sensor_mnt_ang[2] = data[62]<<8;
-	calibration->Nadir_sensor_mnt_ang[2] += data[60];
+	calibration->Nadir_sensor_mnt_ang[2] += data[61];
 	calibration->sun_sensor_mnt_ang[0] = data[41]<<8;
 	calibration->sun_sensor_mnt_ang[0] += data[40];
 	calibration->sun_sensor_mnt_ang[1] = data[43]<<8;
 	calibration->sun_sensor_mnt_ang[1] += data[42];
 	calibration->sun_sensor_mnt_ang[2] = data[45]<<8;
 	calibration->sun_sensor_mnt_ang[2] += data[44];
-	calibration->css[0] = data[27];
+	calibration->css[0] = data[27];//do we even???
 	calibration->css[1] = data[26];
 	calibration->css[2] = data[29];
 	calibration->css[3] = data[28];
@@ -710,14 +694,11 @@ void print_estimation_params(unsigned char *ptr)
 	int   param_int;
 	float param_f;
 
-	param_int = ptr[0] + 256*ptr[1]+(256^2)*ptr[2]+(256^3)*ptr[3];
+	param_int = ptr[0] + 256*ptr[1]+(256*256)*ptr[2]+(256*256*256)*ptr[3];
 	param_f = (float)param_int;
-	printf("system noise %f\n ",param_f);
-
 	ptr+=4;
-	param_int = ptr[0] + 256*ptr[1]+(256^2)*ptr[2]+(256^3)*ptr[3];
+	param_int = ptr[0] + 256*ptr[1]+(256*256)*ptr[2]+(256*256*256)*ptr[3];
 	param_f = (float)param_int;
-	printf("Css measurement noise %f\n ",param_f);
 
 }
 
@@ -729,13 +710,8 @@ void adcs_set_estimation_param(unsigned char mask_sensors)
 	vTaskDelay(20 / portTICK_RATE_MS);
 	I2C_read(0x12, data, 240);
 	unsigned char * pointer_to_first_byte = &data[214];
-	printf("parameters before:\n");
-
-	print_estimation_params(pointer_to_first_byte);
 	pointer_to_first_byte[24] = mask_sensors;
-	//ADCS_command(91,pointer_to_first_byte,26);
-	//printf("parameters after:\n");
-	//print_estimation_params(pointer_to_first_byte);
+	ADCS_command(91,pointer_to_first_byte,26);
 }
 
 void eslADCS_getSatelliteVelocityVec(adcs_ecirefvel_t* sat_vel)
@@ -758,8 +734,9 @@ void eslADCS_getSatelliteVelocityVec(adcs_ecirefvel_t* sat_vel)
 void print_send_ADCS_telemetry_packet(ADCS_telemetry_data telemetry_data)
 {
 	ccsds_packet ccs_packet;
-	int end_offset = 12;
-
+	unsigned long rt;
+	Time_getUnixEpoch(&rt);
+	printf("---ADCS TLM AT TIME %lu--- \n",rt);
 	printf("current cubesence 3.3 %f mA\n",telemetry_data.csense_3v3curr*0.1);
 	printf("current Nadir SRAM 3.3 %f mA\n",(float)telemetry_data.csense_nadirSRAMcurr*10);
 	printf("current nadir SRAM current %f mA\n",(float)telemetry_data.csense_sunSRAMcurr*10);
@@ -782,7 +759,7 @@ void print_send_ADCS_telemetry_packet(ADCS_telemetry_data telemetry_data)
 	ccs_packet.len = sizeof(ADCS_telemetry_data);
 	ccs_packet.data = (unsigned char*)&telemetry_data;
 
-	switch_endian(ccs_packet.data + end_offset, sizeof(ADCS_telemetry_data) - end_offset);
+	//switch_endian(ccs_packet.data + end_offset, sizeof(ADCS_telemetry_data) - end_offset);
 	//send_SCS_pct(ccs_packet);
 
 }
@@ -889,5 +866,5 @@ void test_commissioning_packet()
 	ccd.data=(unsigned char*) &adc_dat;
 	ccd.len = sizeof(ADCS_comissioning_data);
 	update_time(ccd.c_time);
-	send_SCS_pct(ccd);
+	//send_SCS_pct(ccd);
 }

@@ -98,13 +98,13 @@ void deploy_ants(gom_eps_channelstates_t channels_state)
 
 	//this stuff is the sattelite subsystem's way of deploying
 	unsigned char arm;
+	unsigned char arm2;
 	FRAM_read(&arm,ARM_DEPLOY_ADDR, 1);
+	FRAM_read(&arm2,ARM_SECOND_DEPLOY_ADDR, 1);
 
-	if (arm==1)
+	if (arm || arm2)
 	{
 		printf("deploy!!!!\n");
-		if (0)
-		{
 
 			ISISantsSide side =  isisants_sideA;
 			unsigned char antennaSystemsIndex = 0;
@@ -115,30 +115,28 @@ void deploy_ants(gom_eps_channelstates_t channels_state)
 			IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
 
 			vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
-			IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
-			vTaskDelay(5 / portTICK_RATE_MS);
-			IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
-			vTaskDelay(5 / portTICK_RATE_MS);
-			IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
-
-			vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
 			kicktime(MAIN_THREAD);
 			// deploy booms
-			channels_state.fields.channel5V_2 = 1;
-			GomEpsSetOutput(0, channels_state); // Shuts down the payload
-
+			channels_state.fields.channel5V_2 = 1; //switching #2 on
+			GomEpsSetOutput(0, channels_state);
 			vTaskDelay(BOOM_DEPLOY_TIME*1000);
+
+			//try with line #2
 			channels_state.fields.channel5V_2 = 0;
 			channels_state.fields.channel5V_3 = 1;
-			GomEpsSetOutput(0, channels_state); // Shuts down the payload
+			GomEpsSetOutput(0, channels_state); // switching from #2 to #3
 			vTaskDelay(BOOM_DEPLOY_TIME*1000);
-
+			//shuts down both
+			channels_state.fields.channel5V_2 = 0;
+			channels_state.fields.channel5V_3 = 0;
+			GomEpsSetOutput(0, channels_state); //switching both off
+			/*
 			channels_state.fields.channel5V_3 = 0;
 			channels_state.fields.channel5V_2 = 1;
-			GomEpsSetOutput(0, channels_state); // Shuts down the payload
-
+			GomEpsSetOutput(0, channels_state);
+			*/
 			kicktime(MAIN_THREAD);
-
+			/*
 			vTaskDelay(BOOM_DEPLOY_TIME*1000);
 			channels_state.fields.channel5V_2 = 0;
 			channels_state.fields.channel5V_3 = 1;
@@ -147,7 +145,8 @@ void deploy_ants(gom_eps_channelstates_t channels_state)
 
 			channels_state.fields.channel5V_3 = 0;
 			GomEpsSetOutput(0, channels_state); // Shuts down the payload
-		}
+			*/
+
 	}
 	else
 	{
@@ -166,12 +165,15 @@ void redeploy_ants(gom_eps_channelstates_t channels_state)
 
 	//this stuff is the sattelite subsystem's way of deploying
 	unsigned char arm;
+	unsigned char arm2;
 	FRAM_read(&arm,ARM_DEPLOY_ADDR, 1);
+	FRAM_read(&arm2,ARM_SECOND_DEPLOY_ADDR, 1);
 
-	printf("deploy!!!!\n");
-	if (0)
+	if (arm || arm2)
 	{
-
+		printf("deploy!!!!\n");
+		if(0)
+		{
 		ISISantsSide side =  isisants_sideA;
 		unsigned char antennaSystemsIndex = 0;
 		IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
@@ -213,6 +215,7 @@ void redeploy_ants(gom_eps_channelstates_t channels_state)
 
 		channels_state.fields.channel5V_3 = 0;
 		GomEpsSetOutput(0, channels_state); // Shuts down the payload
+		}
 	}
 
 }
@@ -434,18 +437,6 @@ void taskMain()
 
 
 
-	//end the bullshit
-	unsigned long start;
-	unsigned long now;
-	Time_getUnixEpoch(&start);
-	while(0)
-	{
-		Time_getUnixEpoch(&now);
-		GomEpsGetHkData_general(0, &EpsTelemetry_hk);
-		printf("time elapsed: %lu,vbatt is: %d , cursys id %d \n",now-start,EpsTelemetry_hk.fields.vbatt,EpsTelemetry_hk.fields.cursys);
-		vTaskDelay(1000);
-	}
-
 	// check if first activation
 	FRAM_read((unsigned char *)&not_first_activation, FIRST_ACTIVATION_ADDR, 4);
 	deployed = not_first_activation;
@@ -474,7 +465,6 @@ void taskMain()
 		if(rt - pt >= (unsigned long)DEPLOY_TIME)
 		{
 			kicktime(MAIN_THREAD);
-
 			deploy_ants(channels_state);
 			deployed = TRUE;
 			pt = rt;
