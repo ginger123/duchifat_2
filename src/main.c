@@ -88,7 +88,7 @@ void ants_init(void)
 }
 
 
-void deploy_ants(gom_eps_channelstates_t channels_state)
+void deploy_ants(gom_eps_channelstates_t channels_state)//deployes ants 2+4(1+3 are disconnected)
 {
 	//our guess
 	/*IsisAntS_attemptDeployment(0,isisants_sideA,isisants_antenna1, isisants_normalDeployment,10);
@@ -112,7 +112,7 @@ void deploy_ants(gom_eps_channelstates_t channels_state)
 			vTaskDelay(5 / portTICK_RATE_MS);
 			IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
 			vTaskDelay(5 / portTICK_RATE_MS);
-			IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
+			IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);//deployes ants 2+4(1+3 are disconnected)
 
 			vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
 			kicktime(MAIN_THREAD);
@@ -155,7 +155,7 @@ void deploy_ants(gom_eps_channelstates_t channels_state)
 
 }
 
-void redeploy_ants(gom_eps_channelstates_t channels_state)
+void redeploy_ants(gom_eps_channelstates_t channels_state)//deployes ants 2+4(1+3 are disconnected)
 {
 	//our guess
 	/*IsisAntS_attemptDeployment(0,isisants_sideA,isisants_antenna1, isisants_normalDeployment,10);
@@ -180,14 +180,14 @@ void redeploy_ants(gom_eps_channelstates_t channels_state)
 		vTaskDelay(5 / portTICK_RATE_MS);
 		IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
 		vTaskDelay(5 / portTICK_RATE_MS);
-		IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
+		IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);//deployes ants 2+4(1+3 are disconnected)
 
 		vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
 		IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_disarm);
 		vTaskDelay(5 / portTICK_RATE_MS);
 		IsisAntS_setArmStatus(antennaSystemsIndex, side, isisants_arm);
 		vTaskDelay(5 / portTICK_RATE_MS);
-		IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);
+		IsisAntS_autoDeployment(antennaSystemsIndex, side, AUTO_DEPLOYMENT_TIME);//deployes ants 2+4(1+3 are disconnected)
 
 		vTaskDelay(AUTO_DEPLOYMENT_TIME*1000);
 		kicktime(MAIN_THREAD);
